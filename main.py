@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from itertools import combinations_with_replacement, product
+from functools import partial
 from typing import Protocol, Any
 from math import inf, log, exp
 
@@ -75,10 +76,10 @@ def scale(X_train: np.ndarray, X_val: np.ndarray, X_test: np.ndarray):
 def zero_one_loss(labels: np.ndarray, predictions: np.ndarray) -> float:
     return np.not_equal(labels, predictions).astype(int)
 
-# TODO: change this to accept a predictor after the loss instead of the predictions array
-def set_error(loss, labels: np.ndarray, predictions: np.ndarray) -> float:
+def set_error(loss, predictor: Predictor, points: np.ndarray, labels: np.ndarray) -> float:
     # set size
     m = len(labels)
+    predictions = predictor(points)
     return np.sum(loss(labels, predictions)) / m
 
 def train_perceptron(training_points: np.ndarray, training_labels: np.ndarray, max_epochs=10) -> Perceptron:
@@ -97,7 +98,7 @@ def train_perceptron(training_points: np.ndarray, training_labels: np.ndarray, m
 
 # TODO: the number of rounds should be calculated and derivated (show it on the report) and not passed as hyperparameter
 # TODO: try minibatch variant and write and compare results on the report (also for logistic)
-def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> np.ndarray:
+def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> LinearPredictor:
     samples, features = training_points.shape
     w = np.zeros(features)
     # NOTE: t the index of current round are 1-based in the for loop to avoid division by zero
@@ -113,14 +114,17 @@ def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regulariza
             w = (1 - 1 / t) * w + learning_rate * y_it * x_it
         else:
             w = (1 - 1 / t) * w
-    # REPORT
+    # REPORT:
     # NOTE: I adapted this version of the algorithm from https://home.ttic.edu/~nati/Publications/PegasosMPB.pdf
     #       the name of the variable are adapted to be consistent with the pseudo code reported
     #       there are some differences with the pseudocode presented during the lecture:
     #       - the gradient descent update is written in a slightly different way using a conditional instead of an indicator function, I choose to remain consistent also with this stilistic choice
     #       - Instead of return the average of all the weight vector calculated at each step, the paper returns only the last one. The authors indicates that they notate an improvment in performance returning the last vector instead of the average
     #       - The author also provide a mini-batch version of the Pegasos algorithm, with another hyperparameter (the mini-batch size k)
-    return w
+    #       Another approach proposed by the paper is sampling without replacement: so a random permutation of the training set is choosen and the updates are performed in order on the new sequence of data.
+    #       In this way in one epoch a training point is sampled only once. At the end of each epoch we can updated the predictor from the same permutation or shuffle the data another time.
+    #       Although the authors report that this approach gives better results than uniform sampling as I did, I haven't experiment this variant of the algorithm
+    return LinearPredictor(w)
 
 def kernelized_pegasos(training_points: np.ndarray, training_labels: np.ndarray, kernel: Kernel, regularization_coefficent=0.1, rounds=1000) -> np.ndarray:
     samples, features = training_points.shape
@@ -141,7 +145,7 @@ def kernelized_pegasos(training_points: np.ndarray, training_labels: np.ndarray,
 def sigmoid(z: float) -> float:
     return 1 / (1 + exp(-z))
 
-def train_regularized_logistic_classification(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> np.ndarray:
+def train_regularized_logistic_classification(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> LinearPredictor:
     samples, features = training_points.shape
     w = np.zeros(features)
     # NOTE: t the index of current round are 1-based in the for loop to avoid division by zero
@@ -154,10 +158,10 @@ def train_regularized_logistic_classification(training_points: np.ndarray, train
         learning_rate = 1 / (t * regularization_coefficent)
         # update the predictor according to the logistic loss gradient 
         w = (1 - 1 / t) * w + learning_rate * sigmoid(-y_it * np.dot(w, x_it)) * y_it * x_it        
-    return w
+    return LinearPredictor(w)
 
 class HyperparameterSearchResult:
-    def __init__(self, configuration: dict[str, Any], predictor, objective: float) -> None:
+    def __init__(self, configuration: dict[str, Any], predictor: Predictor, objective: float) -> None:
         self.parameters = configuration
         self.predictor = predictor
         self.objective = objective
@@ -298,33 +302,24 @@ def main():
     X_test  = np.column_stack((X_test, np.ones(test_size)))
     
     perceptron = train_perceptron(X_train, y_train, max_epochs=20)
-    predictions = perceptron.predict(X_train)
     print('[Perceptron]')
     print(f"trained perceptron: {perceptron.features}")
-    training_error = set_error(zero_one_loss, y_train, predictions)
+    training_error = set_error(zero_one_loss, perceptron, X_train, y_train)
     print(f"training error for perceptron: {training_error}")
     predictions =perceptron.predict(X_test)
-    test_error = set_error(zero_one_loss, y_test, predictions)
+    test_error = set_error(zero_one_loss, perceptron, X_test, y_test)
     print(f"test error for perceptron: {test_error}\n")
     
-    # TODO: ok we got to far, make this protocol/class for predictor using __call__ 
-    def infer_linear_predictor(points, labels):
-        def wrapper(w):
-            predictions = np.sign(np.dot(points, w))
-            return set_error(zero_one_loss, labels, predictions)
-        return wrapper
+    validation_error = partial(set_error, zero_one_loss, points=X_val, labels=y_val)
 
-    validation_error = infer_linear_predictor(X_val, y_val)
-    
     print('[Pegasos]')
     search_result = grid_search(pegasos, X_train, y_train, validation_error, 
                                 regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
                                 rounds=(100_000,))
     print(f'best validation error: {search_result.objective}')
     print(f'best hyperparameters: {search_result.parameters}') 
-    print(f"grid cv pegasos: {search_result.predictor}")
-    predictions = np.sign(np.dot(X_test, search_result.predictor))
-    test_error = set_error(zero_one_loss, y_test, predictions)
+    print(f"grid cv pegasos: {search_result.predictor.features}")
+    test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
     print(f"test error for cv pegasos: {test_error}\n")
     
     print('[Regularized Logistic Regression]')
@@ -334,9 +329,8 @@ def main():
                                 rounds=(100_000,))
     print(f'best validation error: {search_result.objective}')
     print(f'best hyperparameters: {search_result.parameters}') 
-    print(f"grid cv logistic regression: {search_result.predictor}")
-    predictions = np.sign(np.dot(X_test, search_result.predictor))
-    test_error = set_error(zero_one_loss, y_test, predictions)
+    print(f"grid cv logistic regression: {search_result.predictor.features}")
+    test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
     print(f"test error for cv logistic regression: {test_error}\n")
     
     # print('[Kernelized Pegasos]')
@@ -354,27 +348,23 @@ def main():
     print('[Feature Expanded Perceptron]')
     perceptron = train_perceptron(X_train, y_train, max_epochs=20)
     print(f"trained perceptron with polynomial feature expansion: {perceptron.features}")
-    predictions = perceptron.predict(X_train)
-    training_error = set_error(zero_one_loss, y_train, predictions)
+    training_error = set_error(zero_one_loss, perceptron, X_train, y_train)
     print(f"training error for perceptron with polynomial feature expansion: {training_error}")
-    predictions = perceptron.predict(X_test)
-    test_error = set_error(zero_one_loss, y_test, predictions)
+    test_error = set_error(zero_one_loss, perceptron, X_test, y_test)
     print(f"test error for perceptron with polynomial feature expansion: {test_error}\n")
     
-    validation_error = infer_linear_predictor(X_val, y_val)
+    validation_error = partial(set_error, zero_one_loss, points=X_val, labels=y_val)
+
     print('[Feature Expanded Pegasos]')
     search_result = grid_search(pegasos, X_train, y_train, validation_error, 
                                 regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
                                 rounds=(1_000_000,))
-    w = search_result.predictor
     print(f'best validation error: {search_result.objective}')
     print(f'best hyperparameters: {search_result.parameters}') 
-    print(f"trained pegasos with cv and polynomial feature expansion: {w}")
-    predictions = np.sign(np.dot(X_train, w))
-    training_error = set_error(zero_one_loss, y_train, predictions)
+    print(f"trained pegasos with cv and polynomial feature expansion: {search_result.predictor.features}")
+    training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
     print(f"training error for pegasos with cv and polynomial feature expansion: {training_error}")
-    predictions = np.sign(np.dot(X_test, w))
-    test_error = set_error(zero_one_loss, y_test, predictions)
+    test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
     print(f"test error for pegasos with cv and polynomial feature expansion: {test_error}\n")
 
     print('[Feature expanded Regularized Logistic Regression]')
@@ -384,9 +374,10 @@ def main():
                                 rounds=(100_000,))
     print(f'best validation error: {search_result.objective}')
     print(f'best hyperparameters: {search_result.parameters}') 
-    print(f"grid cv logistic regression with feature expansion: {search_result.predictor}")
-    predictions = np.sign(np.dot(X_test, search_result.predictor))
-    test_error = set_error(zero_one_loss, y_test, predictions)
+    print(f"grid cv logistic regression with feature expansion: {search_result.predictor.features}")
+    training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
+    print(f"training error for cv logistic regression polynomial feature expansion: {training_error}")
+    test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
     print(f"test error for cv logistic regression with feature expansion: {test_error}\n")
 
 
