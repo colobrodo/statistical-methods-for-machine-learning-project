@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from itertools import combinations_with_replacement, product
 from typing import Protocol, Any
 from math import inf, log, exp
@@ -12,23 +13,45 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # TODO: create abc for predictors, losses and kernels and modules
-# class Predictor:
-#     def __call__(self, X: np.ndarray):
-#         self.predict(np.array)
+class Predictor(ABC):
+    @abstractmethod
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        pass
 
-# class LinearPredictor(Predictor):
-#     pass
-
-
-# class Perceptron(LinearPredictor):
-#     def update(self, point: np.ndarray, label: float):
-#         self.updates += 1
-#         self.w += label * point
+    def __call__(self, X: np.ndarray):
+        return self.predict(X)
 
 
-# Kernel = Callable[[np.array, np.array], np.array]
+class LinearPredictor(Predictor):
+    """Represent a linear predictor that separate the space into two semi-space: one positive one negative"""
+    def __init__(self, features: np.ndarray):
+        self.features = features
+        dimension = self.features.shape
+        self.dimension = dimension
+    
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Given an array of shape (m x d) where d is the dimension of the 
+        predictor, returns an array of m elements either -1 or 1 based on the
+        sign of the dot product with the feature vector."""
+        return np.sign(np.dot(X, self.features))
 
-def split_train_test_set(dataset: np.ndarray, training_size: float) -> tuple[np.array, np.array]:
+
+class Perceptron(LinearPredictor):
+    def __init__(self, features: np.ndarray):
+        super().__init__(features)
+        self.updates = 0
+
+    def update(self, point: np.ndarray, label: float):
+        self.updates += 1
+        self.features += label * point
+    
+    @staticmethod
+    def zero(dimension: int) -> Perceptron:
+        """Return a new linear predictor initialized completly at zero"""
+        return __class__(np.zeros(dimension))
+
+
+def split_train_test_set(dataset: np.ndarray, training_size: float) -> tuple[np.ndarray, np.ndarray]:
     m, _ = dataset.shape
     training_size = int(m * training_size)
     return dataset[:training_size], dataset[training_size:] 
@@ -52,24 +75,25 @@ def scale(X_train: np.ndarray, X_val: np.ndarray, X_test: np.ndarray):
 def zero_one_loss(labels: np.ndarray, predictions: np.ndarray) -> float:
     return np.not_equal(labels, predictions).astype(int)
 
+# TODO: change this to accept a predictor after the loss instead of the predictions array
 def set_error(loss, labels: np.ndarray, predictions: np.ndarray) -> float:
     # set size
     m = len(labels)
     return np.sum(loss(labels, predictions)) / m
 
-def train_perceptron(training_points: np.ndarray, training_labels: np.ndarray, max_epochs=10) -> np.ndarray:
+def train_perceptron(training_points: np.ndarray, training_labels: np.ndarray, max_epochs=10) -> Perceptron:
     _, d = training_points.shape
-    w = np.zeros(d)
+    perceptron = Perceptron.zero(d)
     for _ in range(max_epochs):
         update = False
         for x_t, y_t in zip(training_points, training_labels):
-            y = np.dot(w, x_t)
+            y = perceptron.predict(x_t)
             if y_t * y <= 0:
                 update = True
-                w += y_t * x_t
+                perceptron.update(x_t, y_t)
         if not update:
             break
-    return w
+    return perceptron
 
 # TODO: the number of rounds should be calculated and derivated (show it on the report) and not passed as hyperparameter
 # TODO: try minibatch variant and write and compare results on the report (also for logistic)
@@ -273,13 +297,13 @@ def main():
     X_val   = np.column_stack((X_val, np.ones(validation_size)))
     X_test  = np.column_stack((X_test, np.ones(test_size)))
     
-    w = train_perceptron(X_train, y_train, max_epochs=20)
-    predictions = np.sign(np.dot(X_train, w))
+    perceptron = train_perceptron(X_train, y_train, max_epochs=20)
+    predictions = perceptron.predict(X_train)
     print('[Perceptron]')
-    print(f"trained perceptron: {w}")
+    print(f"trained perceptron: {perceptron.features}")
     training_error = set_error(zero_one_loss, y_train, predictions)
     print(f"training error for perceptron: {training_error}")
-    predictions = np.sign(np.dot(X_test, w))
+    predictions =perceptron.predict(X_test)
     test_error = set_error(zero_one_loss, y_test, predictions)
     print(f"test error for perceptron: {test_error}\n")
     
@@ -328,20 +352,20 @@ def main():
     X_test = polynomial_feature_expansion(X_test, 2)
 
     print('[Feature Expanded Perceptron]')
-    w = train_perceptron(X_train, y_train, max_epochs=20)
-    print(f"trained perceptron with polynomial feature expansion: {w}")
-    predictions = np.sign(np.dot(X_train, w))
+    perceptron = train_perceptron(X_train, y_train, max_epochs=20)
+    print(f"trained perceptron with polynomial feature expansion: {perceptron.features}")
+    predictions = perceptron.predict(X_train)
     training_error = set_error(zero_one_loss, y_train, predictions)
     print(f"training error for perceptron with polynomial feature expansion: {training_error}")
-    predictions = np.sign(np.dot(X_test, w))
+    predictions = perceptron.predict(X_test)
     test_error = set_error(zero_one_loss, y_test, predictions)
     print(f"test error for perceptron with polynomial feature expansion: {test_error}\n")
     
     validation_error = infer_linear_predictor(X_val, y_val)
     print('[Feature Expanded Pegasos]')
     search_result = grid_search(pegasos, X_train, y_train, validation_error, 
-                regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
-                rounds=(1_000_000,))
+                                regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
+                                rounds=(1_000_000,))
     w = search_result.predictor
     print(f'best validation error: {search_result.objective}')
     print(f'best hyperparameters: {search_result.parameters}') 
