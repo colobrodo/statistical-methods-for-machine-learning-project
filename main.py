@@ -51,6 +51,23 @@ class Perceptron(LinearPredictor):
         return __class__(np.zeros(dimension))
 
 
+class KernelizedPerceptron(Predictor):
+    def __init__(self, kernel: Kernel, training_points: np.ndarray, training_labels: np.ndarray):
+        training_size, _ = training_points.shape
+        self.kernel = kernel
+        self.training_points = training_points
+        self.training_labels = training_labels
+        self.alpha = np.zeros(training_size)
+    
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        k = self.kernel(self.training_points, X)
+        d = np.dot(np.multiply(self.alpha, self.training_labels), k)
+        return np.sign(d)
+
+    def update(self, i):
+        self.alpha[i] += 1
+
+
 def split_train_test_set(dataset: np.ndarray, training_size: float) -> tuple[np.ndarray, np.ndarray]:
     m, _ = dataset.shape
     training_size = int(m * training_size)
@@ -95,6 +112,20 @@ def train_perceptron(training_points: np.ndarray, training_labels: np.ndarray, m
             break
     return perceptron
 
+def train_kernelized_perceptron(training_points: np.ndarray, training_labels: np.ndarray, kernel: Kernel, max_epochs=10) -> Perceptron:
+    perceptron = KernelizedPerceptron(kernel, training_points, training_labels)
+    for _ in range(max_epochs):
+        update = False
+        for t, z_t in enumerate(zip(training_points, training_labels)):
+            x_t, y_t = z_t
+            y = perceptron.predict(x_t)
+            if y_t * y <= 0:
+                update = True
+                perceptron.update(t)
+        if not update:
+            break
+    return perceptron
+
 # TODO: the number of rounds should be calculated and derivated (show it on the report) and not passed as hyperparameter
 # TODO: try minibatch variant and write and compare results on the report (also for logistic)
 def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> LinearPredictor:
@@ -126,7 +157,7 @@ def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regulariza
     return LinearPredictor(w)
 
 def kernelized_pegasos(training_points: np.ndarray, training_labels: np.ndarray, kernel: Kernel, regularization_coefficent=0.1, rounds=1000) -> np.ndarray:
-    samples, features = training_points.shape
+    samples, _ = training_points.shape
     alpha = np.zeros(samples)
     # NOTE: t the index of current round are 1-based in the for loop to avoid division by zero
     for t in range(1, rounds + 1):
@@ -216,14 +247,21 @@ class Kernel(Protocol):
 
 
 def create_polynomial_kernel(degree: int) -> Kernel:
-    def kernel(X, X2):
-        return np.power(np.dot(X, X2) + 1, degree)
+    def kernel(X: np.ndarray, X2: np.ndarray):
+        # I cannot find a way to use the same implementation for vector and matrices
+        # in the case of vector I would like to use the simple dot product
+        # for the matrix case instead I want to return the matrix K where K_i,j = K(x_i, x2_j)
+        # mainly to avoid using python for loop and reduce the cost of the kernel evaluation on the whole training set
+        if X2.ndim == 1:
+            return np.power(np.dot(X, X2) + 1, degree)
+        elif X2.ndim == 2:
+            return np.power(np.dot(X, X2.T) + 1, degree)
     return kernel
 
 def create_gaussian_kernel(gamma: float) -> Kernel:
     def kernel(X, X2):
         dist = np.linalg.norm(X - X2, 2)
-        return exp(- dist / gamma)
+        return exp(-dist / gamma)
     return kernel
 
 def load_dataset() -> np.ndarray:
@@ -331,7 +369,22 @@ def main():
     print(f"grid cv logistic regression: {search_result.predictor.features}")
     test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
     print(f"test error for cv logistic regression: {test_error}\n")
-    
+
+    print('[Kernelized Perceptron]')
+    kernels = [create_polynomial_kernel(degree) for degree in range(1, 5)]
+    # TODO: gaussian kernel also for matrices
+    # kernels += [create_gaussian_kernel(gamma) for gamma in (10, 20, 100, 1000)]
+    search_result = grid_search(train_kernelized_perceptron, 
+                                X_train, y_train, validation_error, 
+                                kernel=kernels)
+    print(f'best hyperparameters: {search_result.parameters}') 
+    print(f'validation error for kernelized perceptron: {search_result.objective}')
+    training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
+    print(f'training error for kernelized perceptron: {training_error}')
+    test_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
+    print(f'test error for kernelized perceptron: {test_error}')
+    print('\n')
+
     # print('[Kernelized Pegasos]')
     # alphas = kernelized_pegasos(X_train, y_train, create_polynomial_kernel(2), regularization_coefficent=0.01, rounds=10_000)
     # print(np.min(alphas))
