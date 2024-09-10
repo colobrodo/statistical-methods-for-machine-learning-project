@@ -1,0 +1,150 @@
+\documentclass[a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+
+
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e} %,noend
+
+
+% ===== Graph =====
+\usepackage{tikz}
+% ===== Multicol =====
+\usepackage{blindtext}
+\usepackage{multicol}
+% ===== Cancel =====
+\usepackage{cancel}
+% ===== Code =====
+\usepackage{listings} 
+\lstdefinestyle{mystyle}{
+    breakatwhitespace=false,                   
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=False,                  
+    tabsize=2
+}
+
+\usepackage{hyperref}
+
+\textwidth=450pt
+\oddsidemargin=0pt
+\textheight=665pt
+\voffset=-50pt
+
+\lstset{style=mystyle}
+
+\usepackage{setspace}
+
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{bm}
+
+\singlespacing
+% ===================
+\mathtoolsset{showonlyrefs}  
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=black,      
+    urlcolor=black,
+}
+
+\AtBeginDocument{\renewcommand\proofname{Proof}}
+
+\newcommand{\pluseq}{\mathrel{{+}{=}}}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}
+\newtheorem{lemma}{Lemma}
+\newtheorem{remark}{Remark}
+\newtheorem{definition}{Definition}
+
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+
+% \title{Statistical Methods for Maching Learning}
+% \author{Davide Cologni}
+% \date{}
+
+\makeindex
+
+\begin{document}
+
+% \maketitle
+
+
+\begin{titlepage}
+    \begin{center}
+        \LARGE
+        % \text{University of Milan}
+
+        % \vspace*{1cm}
+
+        \textbf{MSc in Computer Science} \\
+        at University of Milan
+
+        \vspace*{1cm}
+
+        
+        \huge
+        Statistical Methods for Machine Learning\\
+        Kernelized Linear Predictor\\
+        
+        \large course held by \textbf{Nicoló Cesa-Bianchi}
+        
+
+        \normalsize
+        \vspace*{4cm}
+
+        \begin{minipage}[t]{0.47\textwidth}
+	       {Email: } \vspace{0.3em} \\
+              {\large \href{davide.cologni@studenti.unimi.it}{davide.cologni@studenti.unimi.it}} \vspace{1em}  \\
+        \end{minipage}
+        \hfill
+        \begin{minipage}[t]{0.47\textwidth}\raggedleft
+	       {Created by:} \hspace{-0.9em} \vspace{0.3em} \\
+              {\large \textbf{Davide Cologni}} \\
+              {\footnotesize mat. 09732A}
+        \end{minipage}
+
+        \vfill
+        Academic year of 2023/2024
+            
+    \end{center}
+\end{titlepage}
+
+\clearpage\null\newpage
+
+\newpage
+% \setlength{\parskip}{0.15em}
+\tableofcontents
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.8em}
+
+
+\clearpage\null\newpage
+
+
+\newpage
+\input{chapters/1_introduction.tex}
+% dataset analysis and preprocessing
+% Perceptron
+%   - naive
+%   - with Feature expansion
+% Support Vector Machine (Pegasos)
+%   - naive
+%       - Hyperparameter tuning
+%       - implementation details
+%           - compare the implementation with the one on the paper
+%   - logistic regression
+%   - with Feature expansion
+%   - logistic regression with Feature expansion
+
+
+\end{document}
