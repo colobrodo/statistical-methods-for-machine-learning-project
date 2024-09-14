@@ -302,9 +302,9 @@ def main():
     args = parser.parse_args()
     
     # print verbose
-    def printv(*args, **kwargs):
+    def printv(*largs, **kwargs):
         if args.verbose:
-            print(*args, **kwargs)
+            print(*largs, **kwargs)
 
     np.random.seed(args.seed)
     dataset = load_dataset()
