@@ -73,7 +73,7 @@ def split_train_test_set(dataset: np.ndarray, training_size: float) -> tuple[np.
     training_size = int(m * training_size)
     return dataset[:training_size], dataset[training_size:] 
 
-def standardise(X_train: np.ndarray, X_val: np.ndarray, X_test: np.ndarray):
+def standardize(X_train: np.ndarray, X_val: np.ndarray, X_test: np.ndarray):
     mean = np.mean(X_train, axis=0)
     std = np.std(X_train, axis=0)
     X_train_norm = (X_train - mean) / std
@@ -222,12 +222,14 @@ def grid_search(algorithm, training_points, training_labels, objective_function,
         #       plotter.plot_validation_error()
         #       plotter.plot_test_error()
         #       plotter.show()
+        # DEBUG:
         print(f"{hyperparameters_configuration} -> {objective}")
         if objective < best_objective:
             best_objective = objective
             best_configuration = hyperparameters_configuration
             best_predictor = predictor
 
+    # DEBUG:
     print("-" * 50 + '\n')
     return HyperparameterSearchResult(best_configuration, best_predictor, best_objective)
 
@@ -264,8 +266,13 @@ def create_polynomial_kernel(degree: int) -> Kernel:
 
 def create_gaussian_kernel(gamma: float) -> Kernel:
     def kernel(X: np.ndarray, X2: np.ndarray):
-        dist = np.linalg.norm(X - X2, 2)
-        return exp(-dist / gamma)
+        if X2.ndim == 1:
+            dist = np.linalg.norm(X - X2, 2, axis=1)
+        elif X2.ndim == 2:
+            # FIXME: this is wrong: it broadcast right in case of single vector but with matrix it requires another implementation
+            #        because for matrix we can only have matrix of the same dimension and do pointwise subtraction
+            raise NotImplementedError
+        return np.exp(-dist / gamma)
     return kernel
 
 def load_dataset() -> np.ndarray:
@@ -285,11 +292,20 @@ def plot_feature_correlation(X: np.ndarray):
 
 def main():
     parser = argparse.ArgumentParser()
+    # TODO: add help for each options
     parser.add_argument('-s', '--seed', default=31415, type=int)
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('--remove-outliers', action='store_true')
+    parser.add_argument('--preprocess', 
+                        choices=('normalize', 'standardize', 'none'),
+                        default='standardize')
     args = parser.parse_args()
     
+    # print verbose
+    def printv(*args, **kwargs):
+        if args.verbose:
+            print(*args, **kwargs)
+
     np.random.seed(args.seed)
     dataset = load_dataset()
     dataset_size, _ = dataset.shape
@@ -313,7 +329,7 @@ def main():
 
     # split the dataset in training and test set
     train_set, test_set = split_train_test_set(dataset, training_size=0.8)
-    train_set, validation_set = split_train_test_set(train_set, training_size=0.25)
+    train_set, validation_set = split_train_test_set(train_set, training_size=0.75)
     train_size, _ = train_set.shape
     validation_size, _ = validation_set.shape
     test_size, _ = test_set.shape
@@ -327,9 +343,16 @@ def main():
     # REPORT: NOTE: show the theoretical bound to justify why we use scaling or stadardization (X the radius on the bound for OGD on strongly convex funct)
     # try which one is the best and justify the choice, or maybe better try both and show which algorithm perform better
     # rescale the data to fit in a normal distribution
-    X_train, X_val, X_test = standardise(X_train, X_val, X_test)
-    # preprocessing: show if some feature are correlated
+    if args.preprocess == 'standardize':
+        printv('preprocessing: feature rescaling standardization')
+        X_train, X_val, X_test = standardize(X_train, X_val, X_test)
+    elif args.preprocess == 'normalize':
+        printv('preprocessing: feature rescaling with normalization')
+        X_train, X_val, X_test = standardize(X_train, X_val, X_test)
+    else:
+        printv('preprocessing: no feature rescaling')
     
+    # preprocessing: show if some feature are correlated
     # REPORT: plotting the feature on the training set on both axis to spot correlation I observed that the feature 2 and 5 have a linear correlation (with a negative coefficent)
     #         as the feature 5 and 9 (with positive coefficent). One possibility in this case during the preprocessing of the data
     #         is to remove the correlated features and leave only one of them to avoid redundancy of the data.
@@ -338,6 +361,7 @@ def main():
     # plot_feature_correlation(X_train)
     
     # CLEANUP: add 1 fixed feature to X_train and X_test to express non omogeneous linear separator
+    # preprocessing: feature augmentation
     X_train = np.column_stack((X_train, np.ones(train_size)))
     X_val   = np.column_stack((X_val, np.ones(validation_size)))
     X_test  = np.column_stack((X_test, np.ones(test_size)))
@@ -346,7 +370,7 @@ def main():
     print('[Perceptron]')
     print(f"trained perceptron: {perceptron.features}")
     training_error = set_error(zero_one_loss, perceptron, X_train, y_train)
-    print(f"training error for perceptron: {training_error}")
+    printv(f"training error for perceptron: {training_error}")
     predictions =perceptron.predict(X_test)
     test_error = set_error(zero_one_loss, perceptron, X_test, y_test)
     print(f"test error for perceptron: {test_error}\n")
@@ -357,8 +381,8 @@ def main():
     search_result = grid_search(pegasos, X_train, y_train, validation_error, 
                                 regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
                                 rounds=(100_000,))
-    print(f'best validation error: {search_result.objective}')
-    print(f'best hyperparameters: {search_result.parameters}') 
+    printv(f'best validation error: {search_result.objective}')
+    printv(f'best hyperparameters: {search_result.parameters}') 
     print(f"grid cv pegasos: {search_result.predictor.features}")
     test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
     print(f"test error for cv pegasos: {test_error}\n")
@@ -368,26 +392,27 @@ def main():
                                 X_train, y_train, validation_error, 
                                 regularization_coefficent=[0.1, 1, 10, 100, 1000], 
                                 rounds=(100_000,))
-    print(f'best validation error: {search_result.objective}')
-    print(f'best hyperparameters: {search_result.parameters}') 
+    printv(f'best validation error: {search_result.objective}')
+    printv(f'best hyperparameters: {search_result.parameters}') 
     print(f"grid cv logistic regression: {search_result.predictor.features}")
     test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
     print(f"test error for cv logistic regression: {test_error}\n")
 
     print('[Kernelized Perceptron]')
     kernels = [create_polynomial_kernel(degree) for degree in range(1, 5)]
-    # TODO: gaussian kernel also for matrices
-    # kernels += [create_gaussian_kernel(gamma) for gamma in (10, 20, 100, 1000)]
+    # TODO:
+    # TODO:
+    # TODO: gaussian kernel also for matrices, UNCOMMENT ME
+    # kernels = [create_gaussian_kernel(gamma) for gamma in (10, 20, 100, 1000)]
     search_result = grid_search(train_kernelized_perceptron, 
                                 X_train, y_train, validation_error, 
                                 kernel=kernels)
     print(f'best hyperparameters: {search_result.parameters}') 
-    print(f'validation error for kernelized perceptron: {search_result.objective}')
+    printv(f'validation error for kernelized perceptron: {search_result.objective}')
     training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
-    print(f'training error for kernelized perceptron: {training_error}')
+    printv(f'training error for kernelized perceptron: {training_error}')
     test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
-    print(f'test error for kernelized perceptron: {test_error}')
-    print('\n')
+    print(f'test error for kernelized perceptron: {test_error}\n')
 
     print('[Kernelized Pegasos]')
     kernels = [create_polynomial_kernel(degree) for degree in range(1, 4)]
@@ -398,10 +423,10 @@ def main():
                                 regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
                                 kernel=kernels,
                                 rounds=(100_000,))
-    print(f'best hyperparameters: {search_result.parameters}') 
-    print(f'validation error for kernelized pegasos: {search_result.objective}')
+    printv(f'validation error for kernelized pegasos: {search_result.objective}')
+    printv(f'best hyperparameters: {search_result.parameters}') 
     training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
-    print(f'training error for kernelized pegasos: {training_error}')
+    printv(f'training error for kernelized pegasos: {training_error}')
     test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
     print(f'test error for kernelized pegasos: {test_error}')
     print('\n')
@@ -415,7 +440,7 @@ def main():
     perceptron = train_perceptron(X_train, y_train, max_epochs=20)
     print(f"trained perceptron with polynomial feature expansion: {perceptron.features}")
     training_error = set_error(zero_one_loss, perceptron, X_train, y_train)
-    print(f"training error for perceptron with polynomial feature expansion: {training_error}")
+    printv(f"training error for perceptron with polynomial feature expansion: {training_error}")
     test_error = set_error(zero_one_loss, perceptron, X_test, y_test)
     print(f"test error for perceptron with polynomial feature expansion: {test_error}\n")
     
@@ -425,11 +450,11 @@ def main():
     search_result = grid_search(pegasos, X_train, y_train, validation_error, 
                                 regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
                                 rounds=(1_000_000,))
-    print(f'best validation error: {search_result.objective}')
-    print(f'best hyperparameters: {search_result.parameters}') 
+    printv(f'best validation error: {search_result.objective}')
+    printv(f'best hyperparameters: {search_result.parameters}') 
     print(f"trained pegasos with cv and polynomial feature expansion: {search_result.predictor.features}")
     training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
-    print(f"training error for pegasos with cv and polynomial feature expansion: {training_error}")
+    printv(f"training error for pegasos with cv and polynomial feature expansion: {training_error}")
     test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
     print(f"test error for pegasos with cv and polynomial feature expansion: {test_error}\n")
 
@@ -438,11 +463,11 @@ def main():
                                 X_train, y_train, validation_error, 
                                 regularization_coefficent=[0.1, 1, 10, 100, 1000], 
                                 rounds=(100_000,))
-    print(f'best validation error: {search_result.objective}')
-    print(f'best hyperparameters: {search_result.parameters}') 
+    printv(f'best validation error: {search_result.objective}')
+    printv(f'best hyperparameters: {search_result.parameters}') 
     print(f"grid cv logistic regression with feature expansion: {search_result.predictor.features}")
     training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
-    print(f"training error for cv logistic regression polynomial feature expansion: {training_error}")
+    printv(f"training error for cv logistic regression polynomial feature expansion: {training_error}")
     test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
     print(f"test error for cv logistic regression with feature expansion: {test_error}\n")
 
