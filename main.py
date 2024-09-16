@@ -69,11 +69,19 @@ class KernelizedPerceptron(Predictor):
 
 
 def split_train_test_set(dataset: np.ndarray, training_size: float) -> tuple[np.ndarray, np.ndarray]:
+    """Split the dataset into two subset
+    
+    :param dataset: the whole dataset
+    :param training_size: a factor between 0 (only training data) and 1 
+    (only test data) that indicates how much data is adibited to the training set percentage"""
     m, _ = dataset.shape
     training_size = int(m * training_size)
     return dataset[:training_size], dataset[training_size:] 
 
 def standardize(X_train: np.ndarray, X_val: np.ndarray, X_test: np.ndarray):
+    """Given an already splitted dataset into training set (`X_train`), validation set (`X_val`)
+    and test set (`X_test`) standardize all the values based on the mean and standard deviation 
+    computed on the **training set**"""
     mean = np.mean(X_train, axis=0)
     std = np.std(X_train, axis=0)
     X_train_norm = (X_train - mean) / std
@@ -82,6 +90,8 @@ def standardize(X_train: np.ndarray, X_val: np.ndarray, X_test: np.ndarray):
     return X_train_norm, X_val_norm, X_test_norm
 
 def scale(X_train: np.ndarray, X_val: np.ndarray, X_test: np.ndarray):
+    """Given an already splitted dataset into training set (`X_train`), validation set (`X_val`)
+    and test set (`X_test`) rescale all the values based on the minimum and maximum computed on the **training set**"""
     min_ = np.min(X_train, axis=0)
     max_ = np.max(X_train, axis=0)
     X_train_scaled = (X_train - min_) / (max_ - min_)
@@ -90,6 +100,8 @@ def scale(X_train: np.ndarray, X_val: np.ndarray, X_test: np.ndarray):
     return X_train_scaled, X_val_scaled, X_test_scaled
 
 def zero_one_loss(labels: np.ndarray, predictions: np.ndarray) -> float:
+    """Computes the zero-one loss over each pair of the elements in the array `labels` and `predictions`.   
+    The array should have the same size or should be broadcastable"""
     return np.not_equal(labels, predictions).astype(int)
 
 def set_error(loss, predictor: Predictor, points: np.ndarray, labels: np.ndarray) -> float:
@@ -177,6 +189,7 @@ def kernelized_pegasos(training_points: np.ndarray, training_labels: np.ndarray,
     return predict
 
 def sigmoid(z: float) -> float:
+    """Computes the sigmoid function over a scalar `z`"""
     return 1 / (1 + exp(-z))
 
 def train_regularized_logistic_classification(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> LinearPredictor:
@@ -195,12 +208,21 @@ def train_regularized_logistic_classification(training_points: np.ndarray, train
     return LinearPredictor(w)
 
 class HyperparameterSearchResult:
+    """The result of an hyperparameter search: it contains a resulting predictor function, the objective value
+    and a dict that maps each parameter name to the hyperparameter that lead to this result"""
     def __init__(self, configuration: dict[str, Any], predictor: Predictor, objective: float) -> None:
         self.parameters = configuration
         self.predictor = predictor
         self.objective = objective
 
+# TODO: types and better doc string, also for single parameter
 def grid_search(algorithm, training_points, training_labels, objective_function, **hyperparameters) -> HyperparameterSearchResult:
+    """Takes a learning algorithm and training set formed by a set of points and labels (the parameters `training_points` and `training_labels`)
+    an objective function, a set of possible value for each hyperparameter of the algorithm and returns the combination of hyperparameters that generate a predictor
+    that maximize the objective function.   
+    The Hyperparameters are passed as know-arguments, each of it has the key that is also the name of the argument taken from the `algorithm` functions,
+    and one iterator-like as value that contains the set of possible value for that hyperparameter.   
+    Usualy the objective function coincide with the validation error"""
     best_objective = inf
     best_configuration = None
     best_predictor = None
@@ -233,11 +255,12 @@ def grid_search(algorithm, training_points, training_labels, objective_function,
     print("-" * 50 + '\n')
     return HyperparameterSearchResult(best_configuration, best_predictor, best_objective)
 
-def polynomial_feature_expansion(X: np.ndarray, degree: int) -> np.ndarray:
+def polynomial_feature_expansion(X: np.ndarray, n: int) -> np.ndarray:
+    """Computes the polynomial feature expansion for the array `X` of degree `n`"""
     samples, features = X.shape
     # Generate combinations of feature indices up to the given degree
     combinations = []
-    for d in range(1, degree + 1):
+    for d in range(1, n + 1):
         combinations.extend(combinations_with_replacement(range(features), d))
     # TODO:
     # Create a list to hold the new features
@@ -248,11 +271,20 @@ def polynomial_feature_expansion(X: np.ndarray, degree: int) -> np.ndarray:
     return poly_features
 
 class Kernel(Protocol):
+    """Identifies a kernel, so a function that computes the dot product between the feature expansion of two vector"""
     def __call__(self, X: np.ndarray, X2: np.ndarray) -> float:
+        """This method compute the kernel over the ndarray `X` and `X2`.
+        They can be two vector and the kernel behave as mathematicly defined or they can be 2 matrix (`m x d`) and (`n x d`).   
+        In the last case a new matrix `K` (`m x n`) is returned where in each position `K[i, j]` is stored the result of the kernel between `X[i]` and `X2[j]`
+        """
         ...
 
 
 def create_polynomial_kernel(degree: int) -> Kernel:
+    """Create a kernel that computes the dot product between the polynomial feature expansion of the two vector of degree `degree`
+
+    :param degree: the degree of the polynomial in kernel space
+    """
     def kernel(X: np.ndarray, X2: np.ndarray):
         # I cannot find a way to use the same implementation for vector and matrices
         # in the case of vector I would like to use the simple dot product
@@ -265,22 +297,29 @@ def create_polynomial_kernel(degree: int) -> Kernel:
     return kernel
 
 def create_gaussian_kernel(gamma: float) -> Kernel:
+    """Creates a gaussian kernel of parameter `gamma`
+    
+    :param gamma: the gamma parameter, so the scaling factor of the distance between the two points"""
     def kernel(X: np.ndarray, X2: np.ndarray):
         if X2.ndim == 1:
             dist = np.linalg.norm(X - X2, 2, axis=1)
         elif X2.ndim == 2:
-            # FIXME: this is wrong: it broadcast right in case of single vector but with matrix it requires another implementation
+            # TODO: this is wrong: it broadcast right in case of single vector but with matrix it requires another implementation
             #        because for matrix we can only have matrix of the same dimension and do pointwise subtraction
             raise NotImplementedError
         return np.exp(-dist / gamma)
     return kernel
 
-def load_dataset() -> np.ndarray:
-    dataset = pd.read_csv('datasets/dataset.csv').values
+def load_dataset(path: str) -> np.ndarray:
+    """Load the csv dataset located at `path` in a randomized order"""
+    dataset = pd.read_csv(path).values
     np.random.shuffle(dataset)
     return dataset
 
 def plot_feature_correlation(X: np.ndarray):
+    """Plot all the combination of features using the first on the x axis and the second as y.   
+    This is usefull to spot visually eventually correlation of data between different feature.
+    """
     _, features = X.shape
     for i in range(features):
         for j in range(i):
@@ -293,9 +332,14 @@ def plot_feature_correlation(X: np.ndarray):
 def main():
     parser = argparse.ArgumentParser()
     # TODO: add help for each options
-    parser.add_argument('-s', '--seed', default=31415, type=int)
+    parser.add_argument('-i', '--input', default='./datasets/dataset.csv', type=str, 
+                        help="The path for the input dataset")
+    parser.add_argument('-s', '--seed', default=31415, type=int,
+                        help="The PRNG seed to allow reproducible results")
     parser.add_argument('-v', '--verbose', action='store_true')
-    parser.add_argument('--remove-outliers', action='store_true')
+    parser.add_argument('--remove-outliers', action='store_true',
+                        help="If specified remove all the outliers from the "
+                        "dataset using the Z-score method")
     parser.add_argument('--preprocess', 
                         choices=('normalize', 'standardize', 'none'),
                         default='standardize')
@@ -307,8 +351,9 @@ def main():
             print(*largs, **kwargs)
 
     np.random.seed(args.seed)
-    dataset = load_dataset()
+    dataset = load_dataset(args.input)
     dataset_size, _ = dataset.shape
+    # REPORT: also say that I check for duplicates and don't find any of them
     if args.remove_outliers:
         # REPORT: another approach I tried is removing the outliers from the dataset but it is already sufficently cleaned
         #         in fact using the Z-score methods and removing 265 outliers over a dataset size of 10_000_000
