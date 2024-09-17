@@ -220,7 +220,7 @@ def grid_search(algorithm, training_points, training_labels, objective_function,
     """Takes a learning algorithm and training set formed by a set of points and labels (the parameters `training_points` and `training_labels`)
     an objective function, a set of possible value for each hyperparameter of the algorithm and returns the combination of hyperparameters that generate a predictor
     that maximize the objective function.   
-    The Hyperparameters are passed as know-arguments, each of it has the key that is also the name of the argument taken from the `algorithm` functions,
+    The Hyperparameters are passed as know-arguments, each of it has the key that is also the name of the argument taken from the `algorithm` function,
     and one iterator-like as value that contains the set of possible value for that hyperparameter.   
     Usualy the objective function coincide with the validation error"""
     best_objective = inf
@@ -280,35 +280,45 @@ class Kernel(Protocol):
         ...
 
 
-def create_polynomial_kernel(degree: int) -> Kernel:
-    """Create a kernel that computes the dot product between the polynomial feature expansion of the two vector of degree `degree`
+class PolynomialKernel(Kernel):
+    def __init__(self, degree: float) -> None:
+        """A kernel that computes the dot product between the polynomial feature expansion of the two vector of degree `degree`
 
-    :param degree: the degree of the polynomial in kernel space
-    """
-    def kernel(X: np.ndarray, X2: np.ndarray):
+        :param degree: the degree of the polynomial in kernel space
+        """
+        self.degree = degree
+    
+    def __call__(self, X: np.ndarray, X2: np.ndarray):
         # I cannot find a way to use the same implementation for vector and matrices
         # in the case of vector I would like to use the simple dot product
         # for the matrix case instead I want to return the matrix K where K_i,j = K(x_i, x2_j)
         # mainly to avoid using python for loop and reduce the cost of the kernel evaluation on the whole training set
         if X2.ndim == 1:
-            return np.power(np.dot(X, X2) + 1, degree)
+            return np.power(np.dot(X, X2) + 1, self.degree)
         elif X2.ndim == 2:
-            return np.power(np.dot(X, X2.T) + 1, degree)
-    return kernel
-
-def create_gaussian_kernel(gamma: float) -> Kernel:
-    """Creates a gaussian kernel of parameter `gamma`
+            return np.power(np.dot(X, X2.T) + 1, self.degree)
     
-    :param gamma: the gamma parameter, so the scaling factor of the distance between the two points"""
-    def kernel(X: np.ndarray, X2: np.ndarray):
+    def __repr__(self):
+        return f"PolynomialKernel(degree={self.degree})"
+
+
+class GaussianKernel(Kernel):
+    def __init__(self, gamma: float):
+        """Creates a gaussian kernel of parameter `gamma`
+
+        :param gamma: the gamma parameter, so the scaling factor of the distance between the two points"""
+        self.gamma = gamma
+    
+    def __call__(self, X: np.ndarray, X2: np.ndarray):
         if X2.ndim == 1:
             dist = np.linalg.norm(X - X2, 2, axis=1)
         elif X2.ndim == 2:
-            # TODO: this is wrong: it broadcast right in case of single vector but with matrix it requires another implementation
-            #        because for matrix we can only have matrix of the same dimension and do pointwise subtraction
-            raise NotImplementedError
-        return np.exp(-dist / gamma)
-    return kernel
+            dist = np.linalg.norm(X[:, np.newaxis, :] - X2[np.newaxis, :, :], axis=2)
+        return np.exp(-dist / self.gamma)
+
+    def __repr__(self):
+        return f"GaussianKernel(gamma={self.gamma})"
+
 
 def load_dataset(path: str) -> np.ndarray:
     """Load the csv dataset located at `path` in a randomized order"""
@@ -416,7 +426,6 @@ def main():
     print(f"trained perceptron: {perceptron.features}")
     training_error = set_error(zero_one_loss, perceptron, X_train, y_train)
     printv(f"training error for perceptron: {training_error}")
-    predictions =perceptron.predict(X_test)
     test_error = set_error(zero_one_loss, perceptron, X_test, y_test)
     print(f"test error for perceptron: {test_error}\n")
     
@@ -444,11 +453,8 @@ def main():
     print(f"test error for cv logistic regression: {test_error}\n")
 
     print('[Kernelized Perceptron]')
-    kernels = [create_polynomial_kernel(degree) for degree in range(1, 5)]
-    # TODO:
-    # TODO:
-    # TODO: gaussian kernel also for matrices, UNCOMMENT ME
-    # kernels = [create_gaussian_kernel(gamma) for gamma in (10, 20, 100, 1000)]
+    kernels = [PolynomialKernel(degree) for degree in range(1, 4)]
+    kernels += [GaussianKernel(gamma) for gamma in (10, 20, 100, 1000)]
     search_result = grid_search(train_kernelized_perceptron, 
                                 X_train, y_train, validation_error, 
                                 kernel=kernels)
@@ -460,9 +466,8 @@ def main():
     print(f'test error for kernelized perceptron: {test_error}\n')
 
     print('[Kernelized Pegasos]')
-    kernels = [create_polynomial_kernel(degree) for degree in range(1, 4)]
-    # TODO: gaussian kernel also for matrices
-    # kernels += [create_gaussian_kernel(gamma) for gamma in (10, 20, 100, 1000)]
+    kernels = [PolynomialKernel(degree) for degree in range(1, 4)]
+    kernels += [GaussianKernel(gamma) for gamma in (10, 20, 100, 1000)]
     search_result = grid_search(kernelized_pegasos, 
                                 X_train, y_train, validation_error,
                                 regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
