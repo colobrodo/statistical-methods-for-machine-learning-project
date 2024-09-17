@@ -453,8 +453,8 @@ def main():
     print(f"test error for cv logistic regression: {test_error}\n")
 
     print('[Kernelized Perceptron]')
-    kernels = [PolynomialKernel(degree) for degree in range(1, 4)]
-    kernels += [GaussianKernel(gamma) for gamma in (10, 20, 100, 1000)]
+    kernels = [PolynomialKernel(degree) for degree in range(1, 5)]
+    kernels += [GaussianKernel(gamma) for gamma in (0.01, 0.1, 1, 10)]
     search_result = grid_search(train_kernelized_perceptron, 
                                 X_train, y_train, validation_error, 
                                 kernel=kernels)
@@ -466,8 +466,8 @@ def main():
     print(f'test error for kernelized perceptron: {test_error}\n')
 
     print('[Kernelized Pegasos]')
-    kernels = [PolynomialKernel(degree) for degree in range(1, 4)]
-    kernels += [GaussianKernel(gamma) for gamma in (10, 20, 100, 1000)]
+    kernels = [PolynomialKernel(degree) for degree in range(1, 5)]
+    kernels += [GaussianKernel(gamma) for gamma in (0.01, 0.1, 1, 10)]
     search_result = grid_search(kernelized_pegasos, 
                                 X_train, y_train, validation_error,
                                 regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
