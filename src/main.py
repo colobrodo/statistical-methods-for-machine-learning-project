@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from itertools import combinations_with_replacement, product
 from functools import partial
-from typing import Protocol, Any
-from math import inf, log, exp
+from typing import Any
+from math import inf, exp
 
 import argparse
 import random
@@ -13,59 +12,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-class Predictor(ABC):
-    @abstractmethod
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        pass
-
-    def __call__(self, X: np.ndarray):
-        return self.predict(X)
-
-
-class LinearPredictor(Predictor):
-    """Represent a linear predictor that separate the space into two semi-space: one positive one negative"""
-    def __init__(self, features: np.ndarray):
-        self.features = features
-        dimension = self.features.shape
-        self.dimension = dimension
-    
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Given an array of shape (m x d) where d is the dimension of the 
-        predictor, returns an array of m elements either -1 or 1 based on the
-        sign of the dot product with the feature vector."""
-        return np.sign(np.dot(X, self.features))
-
-
-class Perceptron(LinearPredictor):
-    def __init__(self, features: np.ndarray):
-        super().__init__(features)
-        self.updates = 0
-
-    def update(self, point: np.ndarray, label: float):
-        self.updates += 1
-        self.features += label * point
-    
-    @staticmethod
-    def zero(dimension: int) -> Perceptron:
-        """Return a new linear predictor initialized completly at zero"""
-        return __class__(np.zeros(dimension))
-
-
-class KernelizedPerceptron(Predictor):
-    def __init__(self, kernel: Kernel, training_points: np.ndarray, training_labels: np.ndarray):
-        training_size, _ = training_points.shape
-        self.kernel = kernel
-        self.training_points = training_points
-        self.training_labels = training_labels
-        self.alpha = np.zeros(training_size)
-    
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        k = self.kernel(self.training_points, X)
-        d = np.dot(np.multiply(self.alpha, self.training_labels), k)
-        return np.sign(d)
-
-    def update(self, i):
-        self.alpha[i] += 1
+from kernel import Kernel, GaussianKernel, PolynomialKernel
+from predictor import Predictor, LinearPredictor
+from perceptron import Perceptron, KernelizedPerceptron
 
 
 def split_train_test_set(dataset: np.ndarray, training_size: float) -> tuple[np.ndarray, np.ndarray]:
@@ -269,55 +218,6 @@ def polynomial_feature_expansion(X: np.ndarray, n: int) -> np.ndarray:
     for i, comb in enumerate(combinations):
         poly_features[:, i] = np.prod(X[:, comb], axis=1)
     return poly_features
-
-class Kernel(Protocol):
-    """Identifies a kernel, so a function that computes the dot product between the feature expansion of two vector"""
-    def __call__(self, X: np.ndarray, X2: np.ndarray) -> float:
-        """This method compute the kernel over the ndarray `X` and `X2`.
-        They can be two vector and the kernel behave as mathematicly defined or they can be 2 matrix (`m x d`) and (`n x d`).   
-        In the last case a new matrix `K` (`m x n`) is returned where in each position `K[i, j]` is stored the result of the kernel between `X[i]` and `X2[j]`
-        """
-        ...
-
-
-class PolynomialKernel(Kernel):
-    def __init__(self, degree: float) -> None:
-        """A kernel that computes the dot product between the polynomial feature expansion of the two vector of degree `degree`
-
-        :param degree: the degree of the polynomial in kernel space
-        """
-        self.degree = degree
-    
-    def __call__(self, X: np.ndarray, X2: np.ndarray):
-        # I cannot find a way to use the same implementation for vector and matrices
-        # in the case of vector I would like to use the simple dot product
-        # for the matrix case instead I want to return the matrix K where K_i,j = K(x_i, x2_j)
-        # mainly to avoid using python for loop and reduce the cost of the kernel evaluation on the whole training set
-        if X2.ndim == 1:
-            return np.power(np.dot(X, X2) + 1, self.degree)
-        elif X2.ndim == 2:
-            return np.power(np.dot(X, X2.T) + 1, self.degree)
-    
-    def __repr__(self):
-        return f"PolynomialKernel(degree={self.degree})"
-
-
-class GaussianKernel(Kernel):
-    def __init__(self, gamma: float):
-        """Creates a gaussian kernel of parameter `gamma`
-
-        :param gamma: the gamma parameter, so the scaling factor of the distance between the two points"""
-        self.gamma = gamma
-    
-    def __call__(self, X: np.ndarray, X2: np.ndarray):
-        if X2.ndim == 1:
-            dist = np.linalg.norm(X - X2, 2, axis=1)
-        elif X2.ndim == 2:
-            dist = np.linalg.norm(X[:, np.newaxis, :] - X2[np.newaxis, :, :], axis=2)
-        return np.exp(-dist / self.gamma)
-
-    def __repr__(self):
-        return f"GaussianKernel(gamma={self.gamma})"
 
 
 def load_dataset(path: str) -> np.ndarray:
