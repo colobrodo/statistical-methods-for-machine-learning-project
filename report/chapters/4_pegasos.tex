@@ -1,0 +1,53 @@
+\newpage
+\section{Support Vector Machine}
+\subsection{Naive}
+% short description of the algorithm
+% we implement the algorithm choosing two surrogate losses (convex upper bound explain it before):
+% the first is the hinge loss and the second the logistic loss, described in the Logistic regression section (TODO: reference it via Latex)
+\subsubsection{implementation details}
+% TODO: the paper should be cited
+I adapted this version of the algorithm from https://home.ttic.edu/~nati/Publications/PegasosMPB.pdf\\
+The name of the variables are adapted to be consistent with the pseudo code reported\\
+Between the code presented in the lecture and this one presented in the paper there are some differences with the pseudocode presented during the lecture:\\
+\begin{itemize}
+    \item The gradient descent update is written in a slightly different way using a conditional statement instead of the classical indicator function, I choose to remain consistent also with this stilistic choice.\\
+    \item Instead of return the average of all the weight vector calculated at each step, the paper returns only the last one.\\ 
+    The authors indicates that they notate an improvment in performance returning the last vector instead of the average.\\ 
+    I embrace also this variation.\\
+    % TODO: mini-batch: if I test also the mini-batch I should report if I notice some improvment and how the algorithm change based on the hyperparameter
+    \item The author also provide a mini-batch version of the Pegasos algorithm, with another hyperparameter (the mini-batch size k).\\
+\end{itemize}
+
+Another approach proposed by the paper is *sampling without replacement*: so a random permutation of the training set is choosen and the updates are performed in order on the new sequence of data.
+In this way, in one epoch, a training point is sampled only once.\\
+After each epoch we can choose if we restart to sample data sequentially according to the same permutation or create a new one and sampling according that new order.\\
+Although the authors report that this approaches gives better results than uniform sampling as I did, I haven't experiment this variant of the algorithm.\\
+
+\subsubsection{Hyperparameter tuning}
+To choose the best hyperparameter for this algorithm (and the other implement) I choose to use the grid search method.\\
+I divide the dataset into 3 different subset: training, test and validation set.\\
+The validation set is used as a surrogate test set to obtain an estimate of the risk.\\
+After splitting the data I choose a finite subset of the possible hyperparameter values $\Theta_0 \subseteq \Theta$ and for each of it create a predictor $h_\theta$ trained with the choosen hyperparameter on the training set.\\
+The risk is then estimate using the validation error on each predictor, and the one with the lower risk is then choosen.
+% TODO: talk about the implementation of the grid_search_cv function
+% TODO: in the instance of Pegasos we use the grid search over the combination of number of round and regularization coefficent, the values choosen for the two hyperparameters are rispectivly %TODO: add a table with the paramete here
+%       the best combination of hyperparameter is given by ... 
+%       we can use the validation error also to test how the algorithm behave using different hyperparameters. In particular if the validation error is high and the training error is low we are overfitting, viceversa if both are high we are underfitting
+%       TODO: changing the regularization coefficent (what the theory says: increasing it too much we underfit) result of our experiment: 
+%         table:    training error      validation error 
+%         lambda                            bold for the minimum
+
+% Support Vector Machine (Pegasos)
+%   - naive
+%       - Hyperparameter tuning
+%          grid search with his implementation
+%       - implementation details
+%           (compare the implementation with the one on the paper)
+%           typo: the index i_t in the summation
+%       - results
+%           - Overfitting and under fitting (theoric view)
+%   - logistic regression
+%       - results
+%           - Overfitting and under fitting (theoric view)
+%   - with Feature expansion
+%   - logistic regression with Feature expansion
