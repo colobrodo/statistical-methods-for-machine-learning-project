@@ -23,30 +23,28 @@ def split_dataset(dataset: np.ndarray, training_size: float) -> tuple[np.ndarray
     :param dataset: the whole dataset
     :param training_size: a factor between 0 (only training data) and 1 
     (only test data) that indicates how much data is adibited to the training set percentage"""
-    m, _ = dataset.shape
+    m = dataset.shape[0]
     training_size = int(m * training_size)
     return dataset[:training_size], dataset[training_size:] 
 
-def standardize(X_train: np.ndarray, X_val: np.ndarray, X_test: np.ndarray):
-    """Given an already splitted dataset into training set (`X_train`), validation set (`X_val`)
-    and test set (`X_test`) standardize all the values based on the mean and standard deviation 
-    computed on the **training set**"""
+def standardize(X_train: np.ndarray, X_test: np.ndarray):
+    """Given an already splitted dataset into training set (`X_train`), and test set (`X_test`) 
+    standardize all the values based on the mean and standard deviation computed
+    on the **training set**"""
     mean = np.mean(X_train, axis=0)
     std = np.std(X_train, axis=0)
     X_train_norm = (X_train - mean) / std
     X_test_norm = (X_test - mean) / std
-    X_val_norm = (X_val - mean) / std
-    return X_train_norm, X_val_norm, X_test_norm
+    return X_train_norm, X_test_norm
 
-def scale(X_train: np.ndarray, X_val: np.ndarray, X_test: np.ndarray):
-    """Given an already splitted dataset into training set (`X_train`), validation set (`X_val`)
-    and test set (`X_test`) rescale all the values based on the minimum and maximum computed on the **training set**"""
+def scale(X_train: np.ndarray, X_test: np.ndarray):
+    """Given an already splitted dataset into training set (`X_train`), and test set (`X_test`) 
+    rescale all the values based on the minimum and maximum computed on the **training set**"""
     min_ = np.min(X_train, axis=0)
     max_ = np.max(X_train, axis=0)
     X_train_scaled = (X_train - min_) / (max_ - min_)
     X_test_scaled = (X_test - min_) / (max_ - min_)
-    X_val_scaled = (X_val - min_) / (max_ - min_)
-    return X_train_scaled, X_val_scaled, X_test_scaled
+    return X_train_scaled, X_test_scaled
 
 def zero_one_loss(labels: np.ndarray, predictions: np.ndarray) -> float:
     """Computes the zero-one loss over each pair of the elements in the array `labels` and `predictions`.   
@@ -136,24 +134,19 @@ class HyperparameterSearchResult:
         self.predictor = predictor
         self.objective = objective
 
-# TODO: types and better doc string, also for single parameter
-def grid_search(algorithm, training_points, training_labels, objective_function, **hyperparameters) -> HyperparameterSearchResult:
-    """Takes a learning algorithm and training set formed by a set of points and labels (the parameters `training_points` and `training_labels`)
-    an objective function, a set of possible value for each hyperparameter of the algorithm and returns the combination of hyperparameters that generate a predictor
-    that maximize the objective function.   
-    The Hyperparameters are passed as know-arguments, each of it has the key that is also the name of the argument taken from the `algorithm` function,
-    and one iterator-like as value that contains the set of possible value for that hyperparameter.   
-    Usualy the objective function coincide with the validation error"""
+# TODO: types and doc string, also for single parameter
+def grid_search(algorithm, training_points, training_labels, **hyperparameters) -> HyperparameterSearchResult:
+    X_dev, X_val = split_dataset(training_points, 0.75)
+    y_dev, y_val = split_dataset(training_labels, 0.75)
     best_objective = inf
     best_configuration = None
-    best_predictor = None
     # TODO: CLEANUP
     for parameter_values in product(*hyperparameters.values()):
         # NOTE: from python version 3.7 the dictionary are garanteed to preserve insersion order during iteration
         #       for this reason we can iterate this using zip
         hyperparameters_configuration = dict(zip(hyperparameters, parameter_values))
-        predictor = algorithm(training_points, training_labels, **hyperparameters_configuration)
-        objective = objective_function(predictor)
+        predictor = algorithm(X_dev, y_dev, **hyperparameters_configuration)
+        objective = set_error(zero_one_loss, predictor, X_val, y_val)
         # DEBUG:
         # TODO: instead of this print we should provide an hook like function that accept all the current hyper parameter configuration
         #       with objective (validation error) and maybe training error 
@@ -170,12 +163,12 @@ def grid_search(algorithm, training_points, training_labels, objective_function,
         if objective < best_objective:
             best_objective = objective
             best_configuration = hyperparameters_configuration
-            # TODO: we should retrain on both the validation and test set?? 
-            best_predictor = predictor
 
     # DEBUG:
     print("-" * 50 + '\n')
-    return HyperparameterSearchResult(best_configuration, best_predictor, best_objective)
+    # we should retrain the algorithm on the whole training set 
+    predictor = algorithm(training_points, training_labels, **best_configuration)
+    return HyperparameterSearchResult(best_configuration, predictor, best_objective)
 
 def polynomial_feature_expansion(X: np.ndarray, n: int) -> np.ndarray:
     """Computes the polynomial feature expansion for the array `X` of degree `n`"""
@@ -257,14 +250,10 @@ def main():
 
     # split the dataset in training and test set
     train_set, test_set = split_dataset(dataset, training_size=0.8)
-    train_set, validation_set = split_dataset(train_set, training_size=0.75)
     train_size, _ = train_set.shape
-    validation_size, _ = validation_set.shape
     test_size, _ = test_set.shape
     # split datapoints and labels into different arrays for training and test set
     X_train = train_set[:, :-1]
-    y_val = validation_set[:, -1]
-    X_val = validation_set[:, :-1]
     y_train = train_set[:, -1]
     X_test = test_set[:, :-1]
     y_test = test_set[:, -1]
@@ -273,10 +262,10 @@ def main():
     # rescale the data to fit in a normal distribution
     if args.preprocess == 'standardize':
         printv('preprocessing: feature rescaling standardization')
-        X_train, X_val, X_test = standardize(X_train, X_val, X_test)
+        X_train, X_test = standardize(X_train, X_test)
     elif args.preprocess == 'normalize':
         printv('preprocessing: feature rescaling with normalization')
-        X_train, X_val, X_test = scale(X_train, X_val, X_test)
+        X_train, X_test = scale(X_train, X_test)
     else:
         printv('preprocessing: no feature rescaling')
     
@@ -291,7 +280,6 @@ def main():
     # preprocessing: feature augmentation
     # add 1 fixed feature to X_train and X_test to express non omogeneous linear separator
     X_train = np.column_stack((X_train, np.ones(train_size)))
-    X_val   = np.column_stack((X_val, np.ones(validation_size)))
     X_test  = np.column_stack((X_test, np.ones(test_size)))
     
     perceptron = train_perceptron(X_train, y_train, max_epochs=20)
@@ -302,10 +290,8 @@ def main():
     test_error = set_error(zero_one_loss, perceptron, X_test, y_test)
     print(f"test error for perceptron: {test_error}\n")
     
-    validation_error = partial(set_error, zero_one_loss, points=X_val, labels=y_val)
-
     print('[Pegasos]')
-    search_result = grid_search(pegasos, X_train, y_train, validation_error, 
+    search_result = grid_search(pegasos, X_train, y_train, 
                                 regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
                                 rounds=(100_000,))
     printv(f'best validation error: {search_result.objective}')
@@ -316,7 +302,7 @@ def main():
     
     print('[Regularized Logistic Regression]')
     search_result = grid_search(train_regularized_logistic_classification, 
-                                X_train, y_train, validation_error, 
+                                X_train, y_train, 
                                 regularization_coefficent=[0.1, 1, 10, 100, 1000], 
                                 rounds=(100_000,))
     printv(f'best validation error: {search_result.objective}')
@@ -329,7 +315,7 @@ def main():
     kernels = [PolynomialKernel(degree) for degree in range(1, 5)]
     kernels += [GaussianKernel(gamma) for gamma in (0.01, 0.1, 1, 10)]
     search_result = grid_search(train_kernelized_perceptron, 
-                                X_train, y_train, validation_error, 
+                                X_train, y_train, 
                                 kernel=kernels)
     print(f'best hyperparameters: {search_result.parameters}') 
     printv(f'validation error for kernelized perceptron: {search_result.objective}')
@@ -342,8 +328,8 @@ def main():
     kernels = [PolynomialKernel(degree) for degree in range(1, 5)]
     kernels += [GaussianKernel(gamma) for gamma in (0.01, 0.1, 1, 10)]
     search_result = grid_search(kernelized_pegasos, 
-                                X_train, y_train, validation_error,
-                                regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
+                                X_train, y_train,
+                                regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100], 
                                 kernel=kernels,
                                 rounds=(100_000,))
     printv(f'validation error for kernelized pegasos: {search_result.objective}')
@@ -356,7 +342,6 @@ def main():
 
     # try perceptron and svm with polynomial feature expansion of degree 2
     X_train = polynomial_feature_expansion(X_train, 2)
-    X_val = polynomial_feature_expansion(X_val, 2)
     X_test = polynomial_feature_expansion(X_test, 2)
 
     print('[Feature Expanded Perceptron]')
@@ -367,10 +352,8 @@ def main():
     test_error = set_error(zero_one_loss, perceptron, X_test, y_test)
     print(f"test error for perceptron with polynomial feature expansion: {test_error}\n")
     
-    validation_error = partial(set_error, zero_one_loss, points=X_val, labels=y_val)
-
     print('[Feature Expanded Pegasos]')
-    search_result = grid_search(pegasos, X_train, y_train, validation_error, 
+    search_result = grid_search(pegasos, X_train, y_train,
                                 regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
                                 rounds=(1_000_000,))
     printv(f'best validation error: {search_result.objective}')
@@ -383,7 +366,7 @@ def main():
 
     print('[Feature expanded Regularized Logistic Regression]')
     search_result = grid_search(train_regularized_logistic_classification, 
-                                X_train, y_train, validation_error, 
+                                X_train, y_train,
                                 regularization_coefficent=[0.1, 1, 10, 100, 1000], 
                                 rounds=(100_000,))
     printv(f'best validation error: {search_result.objective}')
