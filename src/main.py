@@ -14,10 +14,10 @@ import matplotlib.pyplot as plt
 
 from kernel import Kernel, GaussianKernel, PolynomialKernel
 from predictor import Predictor, LinearPredictor
-from perceptron import Perceptron, KernelizedPerceptron
+from perceptron import train_kernelized_perceptron, train_perceptron
 
 
-def split_train_test_set(dataset: np.ndarray, training_size: float) -> tuple[np.ndarray, np.ndarray]:
+def split_dataset(dataset: np.ndarray, training_size: float) -> tuple[np.ndarray, np.ndarray]:
     """Split the dataset into two subset
     
     :param dataset: the whole dataset
@@ -59,20 +59,6 @@ def set_error(loss, predictor: Predictor, points: np.ndarray, labels: np.ndarray
     predictions = predictor(points)
     return np.sum(loss(labels, predictions)) / m
 
-def train_perceptron(training_points: np.ndarray, training_labels: np.ndarray, max_epochs=10) -> Perceptron:
-    _, d = training_points.shape
-    perceptron = Perceptron.zero(d)
-    for _ in range(max_epochs):
-        update = False
-        for x_t, y_t in zip(training_points, training_labels):
-            y = perceptron.predict(x_t)
-            if y_t * y <= 0:
-                update = True
-                perceptron.update(x_t, y_t)
-        if not update:
-            break
-    return perceptron
-
 # TODO: the number of rounds should be calculated and derivated (show it on the report) and not passed as hyperparameter
 # TODO: try minibatch variant and write and compare results on the report (also for logistic)
 def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> LinearPredictor:
@@ -102,20 +88,6 @@ def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regulariza
     #       In this way in one epoch a training point is sampled only once. At the end of each epoch we can updated the predictor from the same permutation or shuffle the data another time.
     #       Although the authors report that this approach gives better results than uniform sampling as I did, I haven't experiment this variant of the algorithm
     return LinearPredictor(w)
-
-def train_kernelized_perceptron(training_points: np.ndarray, training_labels: np.ndarray, kernel: Kernel, max_epochs=10) -> Perceptron:
-    perceptron = KernelizedPerceptron(kernel, training_points, training_labels)
-    for _ in range(max_epochs):
-        update = False
-        for t, z_t in enumerate(zip(training_points, training_labels)):
-            x_t, y_t = z_t
-            y = perceptron.predict(x_t)
-            if y_t * y <= 0:
-                update = True
-                perceptron.update(t)
-        if not update:
-            break
-    return perceptron
 
 def kernelized_pegasos(training_points: np.ndarray, training_labels: np.ndarray, kernel: Kernel, regularization_coefficent=0.1, rounds=1000) -> Predictor:
     samples, _ = training_points.shape
@@ -198,6 +170,7 @@ def grid_search(algorithm, training_points, training_labels, objective_function,
         if objective < best_objective:
             best_objective = objective
             best_configuration = hyperparameters_configuration
+            # TODO: we should retrain on both the validation and test set?? 
             best_predictor = predictor
 
     # DEBUG:
@@ -266,7 +239,7 @@ def main():
     # REPORT: also say that I check for duplicates and don't find any of them
     if args.remove_outliers:
         # REPORT: another approach I tried is removing the outliers from the dataset but it is already sufficently cleaned
-        #         in fact using the Z-score methods and removing 265 outliers over a dataset size of 10_000_000
+        #         in fact using the Z-score methods and removing 265 outliers over a dataset size of 10_000
         #         affects the performance of the model in a minimum way with no significative changes, in fact in some cases it is (even if only slightly) worsening
         #         comparison data table
         # remove outliers from the dataset using the Z-score method:
@@ -283,8 +256,8 @@ def main():
         dataset = dataset[np.any(np.abs(z_score) < 3, axis=1)]
 
     # split the dataset in training and test set
-    train_set, test_set = split_train_test_set(dataset, training_size=0.8)
-    train_set, validation_set = split_train_test_set(train_set, training_size=0.75)
+    train_set, test_set = split_dataset(dataset, training_size=0.8)
+    train_set, validation_set = split_dataset(train_set, training_size=0.75)
     train_size, _ = train_set.shape
     validation_size, _ = validation_set.shape
     test_size, _ = test_set.shape
@@ -303,7 +276,7 @@ def main():
         X_train, X_val, X_test = standardize(X_train, X_val, X_test)
     elif args.preprocess == 'normalize':
         printv('preprocessing: feature rescaling with normalization')
-        X_train, X_val, X_test = standardize(X_train, X_val, X_test)
+        X_train, X_val, X_test = scale(X_train, X_val, X_test)
     else:
         printv('preprocessing: no feature rescaling')
     
@@ -315,8 +288,8 @@ def main():
     #         to removing this noise that can encode important information on the model
     # plot_feature_correlation(X_train)
     
-    # CLEANUP: add 1 fixed feature to X_train and X_test to express non omogeneous linear separator
     # preprocessing: feature augmentation
+    # add 1 fixed feature to X_train and X_test to express non omogeneous linear separator
     X_train = np.column_stack((X_train, np.ones(train_size)))
     X_val   = np.column_stack((X_val, np.ones(validation_size)))
     X_test  = np.column_stack((X_test, np.ones(test_size)))
