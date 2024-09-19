@@ -8,7 +8,7 @@
 % TODO: the paper should be cited
 I adapted this version of the algorithm from https://home.ttic.edu/~nati/Publications/PegasosMPB.pdf\\
 The name of the variables are adapted to be consistent with the pseudo code reported\\
-Between the code presented in the lecture and this one presented in the paper there are some differences with the pseudocode presented during the lecture:\\
+Between the code presented in the lecture and this one presented in the paper there are some differences with the pseudocode presented during the lectures:\\
 \begin{itemize}
     \item The gradient descent update is written in a slightly different way using a conditional statement instead of the classical indicator function, I choose to remain consistent also with this stilistic choice.\\
     \item Instead of return the average of all the weight vector calculated at each step, the paper returns only the last one.\\ 
@@ -24,6 +24,7 @@ After each epoch we can choose if we restart to sample data sequentially accordi
 Although the authors report that this approaches gives better results than uniform sampling as I did, I haven't experiment this variant of the algorithm.\\
 
 \subsubsection{Hyperparameter tuning}
+% TODO: revisit I don't separate the training and test set into development and 
 To choose the best hyperparameter for this algorithm (and the other implement) I choose to use the grid search method.\\
 I divide the dataset into 3 different subset: training, test and validation set.\\
 The validation set is used as a surrogate test set to obtain an estimate of the risk.\\
