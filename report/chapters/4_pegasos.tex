@@ -1,12 +1,57 @@
 \newpage
 \section{Support Vector Machine}
-\subsection{Naive}
 % short description of the algorithm
-% we implement the algorithm choosing two surrogate losses (convex upper bound explain it before):
-% the first is the hinge loss and the second the logistic loss, described in the Logistic regression section (TODO: reference it via Latex)
+The Support Vector Machine (SVM) algorithm learn linear classifiers, finding a linear classifier that is the \textbf{maximum margin separator hyperplane} and so achive the maximum margin from all the point in the training set.\\
+
+Given a linearly separable training set $S = \{(\boldsymbol{x}_1, y_1), \dots, (\boldsymbol{x}_n, y_n)\} \in \mathbb{R}^d \times \{-1, 1\}$ it's possible to find this hyperplane solving the following convex optimization problem with linear constraints.\\ 
+\begin{align*} 
+    & \underset{\boldsymbol{w} \in \mathbb{R}^d}{\min} \ \frac{1}{2} \Vert \boldsymbol{w} \Vert^2 \\
+    & \text{s.t.} \ y_t \boldsymbol{w}^\top \boldsymbol{x}_t \geq 1 \ \text{for} \ t = 1, \dots, m 
+\end{align*}
+
+% TODO: in case the training set is not separable
+% TODO: explain the regularization parameter and says that is an hyperparameter
+The optimization problem that describe the Support Vector Machine is optimized using the Pegasos algorithm.\\
+The Pegasos algorithm is a variant of the Stocastic Gradient Descent algorithm, where at each step a point (or a set of points in the mini-batch variant) is sampled randomly from the training set
+and the current predictor is updated with the negative gradient of the loss of that training example weighted by a learning rate factor $\eta_t$.\\
+In case of Pegasos the learning rate factor $\eta_t$ is choose at each step as $\frac{1}{\lambda t}$.\\
+I implement the Pegasos algorithm using the standard variant with the hinge loss, and with the logistic loss (Described in the Logistic regression parameter).\\
+Both this functions are convex upper bounds of the zero-one loss, and the $\lambda$ regularization parameter allow to have a $\lambda$-strongly convex function to minimize with the gradient descent.\\
+% TODO: because of this fact we use the bound from OGD and obtain the one over the expected value for Pegasos
+\subsection{Naive}
+As I previously said I implemented Pegasos using two surrogate losses: hinge loss and logistic loss.\\
+Now I describe the implementation with hinge loss, that differs from the logistic one only by the update step.\\ 
+Recall that the hinge loss is defined as $l(y, \hat{y}) = \max\{0, 1 - y_t \hat{y}\}$\\
+Given $Z_t = (X_t, Y_t)$ a random sample from the training set, the update rule for Pegasos is:\\
+$$\boldsymbol{w}_{t+1} = \boldsymbol{w}_t - \eta_t \nabla\ell_{Z_t}(w_t)$$
+
+Let be $s_t$ the realization for the random variable $Z_t$\\ 
+Where $\ell_{s_t}(w) = \left[1 - y_{s_t} \boldsymbol{w}^T x_{s_t}\right]_+ + \frac{\lambda}{2} ||w||^2$ so
+$$\nabla\ell_{s_t}(w) = -y_{s_t} x_{s_t} \mathbb{I}\{h_{s_t}(\boldsymbol{w}) > 0\} + \lambda w $$
+Let $\boldsymbol{v_t} = y_t x_t I\{h_t(\boldsymbol{w_t}) > 0\}$ and choosing $\eta_t = \frac{1}{\lambda t}$ we have
+$$\boldsymbol{w}_{t+1} = \boldsymbol{w}_t (1 - \frac{1}{t}) + \frac{1}{\lambda t} \boldsymbol{v_t}$$
+
 \subsubsection{implementation details}
-% TODO: the paper should be cited
-I adapted this version of the algorithm from https://home.ttic.edu/~nati/Publications/PegasosMPB.pdf\\
+I adapted this version of the algorithm from \textit{Pegasos: Primal Estimated sub-GrAdient SOlver for SVM}\cite{Pegasos_paper}\\
+
+\begin{algorithm}[H]
+    \SetAlgoLined
+    \DontPrintSemicolon
+    \caption{Pegasos Algorithm}
+    \KwIn{$S$, $\lambda$, $T$}
+    \For{$t = 1, 2, \dots, T$}{
+        Choose $i_t$ uniformly at random.\\
+        Set $\eta_t = \frac{1}{\lambda t}$\\
+        \If{$y_{it} \boldsymbol{w}_t^T x_{i_{t}} < 1$}{
+            Set $\boldsymbol(w)_{t+1} \leftarrow (1 - \eta_t \lambda)\boldsymbol{w}_t + \eta_t y_{it} \boldsymbol{x}_{i_{t}}$
+            }
+            \Else {
+                Set $\boldsymbol(w)_{t+1} \leftarrow (1 - \eta_t \lambda)\boldsymbol{w}_t$
+        }
+    }    
+    Output $\boldsymbol{w}_{T+1}$
+\end{algorithm}
+
 The name of the variables are adapted to be consistent with the pseudo code reported\\
 Between the code presented in the lecture and this one presented in the paper there are some differences with the pseudocode presented during the lectures:\\
 \begin{itemize}
@@ -14,18 +59,20 @@ Between the code presented in the lecture and this one presented in the paper th
     \item Instead of return the average of all the weight vector calculated at each step, the paper returns only the last one.\\ 
     The authors indicates that they notate an improvment in performance returning the last vector instead of the average.\\ 
     I embrace also this variation.\\
+    \item In the pseudo code of Pegasos they also describe an projection step to clamp the magnitude of the linear predictor, but I don't incorporate it.\\ 
     % TODO: mini-batch: if I test also the mini-batch I should report if I notice some improvment and how the algorithm change based on the hyperparameter
-    \item The author also provide a mini-batch version of the Pegasos algorithm, with another hyperparameter (the mini-batch size k).\\
+    \item The author also provide a mini-batch version of the Pegasos algorithm, with another hyperparameter (the mini-batch has size k).\\
 \end{itemize}
 
-Another approach proposed by the paper is *sampling without replacement*: so a random permutation of the training set is choosen and the updates are performed in order on the new sequence of data.
+Another approach proposed by the paper is {\bf sampling without replacement}: so a random permutation of the training set is choosen and the updates are performed in order on the new sequence of data.
 In this way, in one epoch, a training point is sampled only once.\\
 After each epoch we can choose if we restart to sample data sequentially according to the same permutation or create a new one and sampling according that new order.\\
 Although the authors report that this approaches gives better results than uniform sampling as I did, I haven't experiment this variant of the algorithm.\\
 
 \subsubsection{Hyperparameter tuning}
-% TODO: revisit I don't separate the training and test set into development and 
+Differently from the perceptron the Pegasos algorithm has an hyperparameter to choose: The regularization coefficent $\lambda$.\\
 To choose the best hyperparameter for this algorithm (and the other implement) I choose to use the grid search method.\\
+% TODO: revisit separation of training into dev and validation set
 I divide the dataset into 3 different subset: training, test and validation set.\\
 The validation set is used as a surrogate test set to obtain an estimate of the risk.\\
 After splitting the data I choose a finite subset of the possible hyperparameter values $\Theta_0 \subseteq \Theta$ and for each of it create a predictor $h_\theta$ trained with the choosen hyperparameter on the training set.\\
@@ -38,13 +85,17 @@ The risk is then estimate using the validation error on each predictor, and the 
 %         table:    training error      validation error 
 %         lambda                            bold for the minimum
 
+\subsection{Logistic regression}
+\subsection{Feature Expansion}
+\subsubsection{Pegasos}
+\subsubsection{Logistic Regression}
 % Support Vector Machine (Pegasos)
 %   - naive
 %       - Hyperparameter tuning
 %          grid search with his implementation
 %       - implementation details
 %           (compare the implementation with the one on the paper)
-%           typo: the index i_t in the summation
+%           kernelized version typo: the index i_t in the summation
 %       - results
 %           - Overfitting and under fitting (theoric view)
 %   - logistic regression

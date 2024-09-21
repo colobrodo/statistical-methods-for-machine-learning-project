@@ -1,7 +1,83 @@
 \newpage
 \section{Perceptron}
-% description of the algorithm with pseudocode
-%   - naive
-%     - results
-%   - Feature expansion (degree 2)
-%     - results
+
+The first algorithm that I implemented is the perceptron algorithm.\\
+The perceptron algorithm is used to learn linear classifiers.\\
+linear classifiers are identified by an hyperplane that separe the input space into two halfspaces, one positive and one negative.\\
+The positive halfspace is called so because the dot product with the normal vector that identify the hyperplane and any point in that space is positive, similary the negative halfspace has always negative dot products.\\
+One important property of the Perceptron is the convergence (to the ERM) in a finite number of step if the dataset is lineary separable.\\
+This properties is stated by the \textbf{Perceptron Convergence Theorem}:
+
+\textit{Let $(\boldsymbol{x}_1 , y_1 ), \dots, (\boldsymbol{x}_m , y_m)$ be a linearly separable training set. Then the Perceptron algorithm returns a linear classifier with zero training error in a finite number of updates}
+$$
+M \leq \left(\underset{\boldsymbol{u} : \gamma(\boldsymbol{u}) \geq 1}{\min} \Vert \boldsymbol{u} \Vert^2 \right) \ \left( \underset{t = 1, \dots, m}{\max} \Vert \boldsymbol{x}_t \Vert^2 \right)
+$$
+
+where $\gamma (\boldsymbol{u})$ is the margin obtained by the linear separator $\boldsymbol{u}$\\ 
+ 
+Is possible to show also a bound for non lineary separable cases:\\
+
+$$
+M \leq \sum_{t=1}^{T} h_{t}(\boldsymbol{u}) + (\Vert \boldsymbol{u} \Vert X)^2 + \Vert \boldsymbol{u} \Vert X \sqrt{\sum_{t=1}^{T}h_t (\boldsymbol{u})} \quad \text{for all}\ \boldsymbol{u} \in \mathbb{R}^d    
+$$
+
+This shows a bound on the number of mistakes made by the Perceptron algorithm on any data sequence of arbitrary length $T$.\\
+$h_{t}(\boldsymbol{u})$ is the hinge loss for the $t$-example.\\
+
+\subsection{Naive version}
+\begin{algorithm}[H]
+    \SetAlgoLined
+    \DontPrintSemicolon
+    \caption{The Perceptron algorithm}
+    \KwIn{Training set $(\boldsymbol{x}_1 , y_1 ), \dots, (\boldsymbol{x}_m , y_m)$}
+    $\boldsymbol{w} = (0, \dots, 0)$\\
+\While{true} {  
+    \For(\tcp*[f]{(epoch)}){$i = 1, \dots, m$}{
+        \uIf{$y_i \boldsymbol{w}^{\top}\boldsymbol{x}_i \leq 0$}{
+            $\boldsymbol{w} \leftarrow \boldsymbol{w} + y_i \boldsymbol{x}_i$ \tcp*[f]{(update)}\\ 
+        }    
+    }
+    \uIf{no update in last epoch} {
+        \textbf{break}
+    } 
+   }
+   \KwOut{$\boldsymbol{w}$}
+\end{algorithm}
+
+My implementation slightly varies from the presented pseudocode:
+While the above on keep running until convergence if the training set is not lineary separable (as in this case) we never converge and so the algorithm never terminates.\\
+To avoid this I use an additional parameter 'max\_epoch' that limits the number of epoch which tha algorithm can run.\\
+I choose to use a fixed value of 20 for this parameter both for the naive case and over the feature expanded dataset presented in the next section.\\
+Training the perceptron algorithm with the preprocessing methodology described in the previous chapter (For all the algorihtms I describe I trained it with the default command line options), I have obtained a training error of $0.322625$ and a test error of $0.326$.\\
+The linear separator founded by the perceptron algorihtm has the following features:\\\\
+(0.55604295,  1.97486085, -2.58700382, -1.74490783,  1.91766823, -3.89876104,\\
+ -0.02419966,  3.06371997,  0.21648717, -0.79054099,  1)
+(Recall the features are 11 because we add a constant feature of 1 to the dataset to being able to express non-homogeneous linear hyperplane).\\
+
+\subsection{Feature Expansion of 2nd degree}
+
+I also trained the perceptron algorihtm on a second degree polynomial feature expanded dataset.\\
+In this version of the algorithm is possible to express hyperplane in a high dimensional feature space, and this can also be interpreted as a polynomial curve (of second degree in this case) in the original space.\\
+For this reason the training and test error of the resulting predictor are significantly better than the previous version.\\
+Specifically I obtained a training error of 0.085375, and a test error of 0.087.\\
+This are the features obtained:\\\\
+(1.87559817e+01  1.13401244e+00  7.68047788e+00 -1.32276315e+01\\
+  1.73791816e+01 -5.35283741e+00  1.04738036e+01  6.65533633e+01\\
+  3.38354273e+01  5.20890557e+00 -1.40000000e+01 -2.37767269e+00\\
+ -1.15700558e+01  3.58887386e+00 -7.70998879e+00 -3.37225323e+00\\
+  8.62691037e+00  5.29455094e+00  7.16899813e+01 -2.75843723e+00\\
+ -1.44740075e+01  1.87559817e+01  1.58098829e+00 -2.16046998e+01\\
+  4.71738784e+00 -9.24568568e-01  2.31787163e+00 -6.88714236e-01\\
+  6.36558311e+00  2.24640419e+02 -3.01817078e+01  1.13401244e+00\\
+ -1.01581267e+01 -5.54650087e+00 -1.37119017e+01  5.92267047e+00\\
+  6.13176127e+00 -1.91940656e+01  1.20197686e+01 -3.78679497e+00\\
+  7.68047788e+00 -4.32369339e+00 -2.30745221e-01 -8.05450142e+00\\
+  1.43389046e+00 -7.36485907e+01  4.14731220e+00  9.17178493e-01\\
+ -1.32276315e+01  9.31783828e-01 -2.90129736e+01  1.10054038e+01\\
+  9.29221437e+00  5.16458889e-02  5.24165775e+00  1.73791816e+01\\
+ -3.39061351e+00  1.79056771e+01  1.68705706e+01  1.02044524e+01\\
+ -7.88104212e+00 -5.35283741e+00  4.04206126e+00  1.28786306e+01\\
+  1.01040343e+01  9.69582051e+00  1.04738036e+01  1.03988287e+01\\
+  2.78928092e+00 -2.37491314e+01  6.65533633e+01  8.51087821e-01\\
+  6.32907160e+00  3.38354273e+01 -2.72097857e+00  5.20890557e+00\\
+ -1.40000000e+01) \\
