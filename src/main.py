@@ -1,51 +1,23 @@
 from __future__ import annotations
 
-from itertools import combinations_with_replacement, product
-from typing import Any
-from math import inf, exp
-
 import argparse
 import logging
 import pickle
-import random
+from itertools import combinations_with_replacement, product
+from math import inf
+from typing import Any
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
-from kernel import Kernel, GaussianKernel, PolynomialKernel
-from predictor import Predictor, LinearPredictor
+from kernel import GaussianKernel, PolynomialKernel
+from pegasos import (kernelized_pegasos, pegasos,
+                     train_regularized_logistic_classification)
 from perceptron import train_kernelized_perceptron, train_perceptron
+from predictor import Predictor
+from preprocessing import preprocessing, split_dataset, ScalingType
 
-
-def split_dataset(dataset: np.ndarray, training_size: float) -> tuple[np.ndarray, np.ndarray]:
-    """Split the dataset into two subset
-    
-    :param dataset: the whole dataset
-    :param training_size: a factor between 0 (only training data) and 1 
-    (only test data) that indicates how much data is adibited to the training set percentage"""
-    m = dataset.shape[0]
-    training_size = int(m * training_size)
-    return dataset[:training_size], dataset[training_size:] 
-
-def standardize(X_train: np.ndarray, X_test: np.ndarray):
-    """Given an already splitted dataset into training set (`X_train`), and test set (`X_test`) 
-    standardize all the values based on the mean and standard deviation computed
-    on the **training set**"""
-    mean = np.mean(X_train, axis=0)
-    std = np.std(X_train, axis=0)
-    X_train_norm = (X_train - mean) / std
-    X_test_norm = (X_test - mean) / std
-    return X_train_norm, X_test_norm
-
-def scale(X_train: np.ndarray, X_test: np.ndarray):
-    """Given an already splitted dataset into training set (`X_train`), and test set (`X_test`) 
-    rescale all the values based on the minimum and maximum computed on the **training set**"""
-    min_ = np.min(X_train, axis=0)
-    max_ = np.max(X_train, axis=0)
-    X_train_scaled = (X_train - min_) / (max_ - min_)
-    X_test_scaled = (X_test - min_) / (max_ - min_)
-    return X_train_scaled, X_test_scaled
 
 def zero_one_loss(labels: np.ndarray, predictions: np.ndarray) -> float:
     """Computes the zero-one loss over each pair of the elements in the array `labels` and `predictions`.   
@@ -57,74 +29,6 @@ def set_error(loss, predictor: Predictor, points: np.ndarray, labels: np.ndarray
     m = len(labels)
     predictions = predictor(points)
     return np.sum(loss(labels, predictions)) / m
-
-# TODO: try minibatch variant and write and compare results on the report (also for logistic)
-def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> LinearPredictor:
-    samples, features = training_points.shape
-    w = np.zeros(features)
-    # NOTE: t the index of current round are 1-based in the for loop to avoid division by zero
-    for t in range(1, rounds + 1):
-        random_index = random.randint(0, samples - 1)
-        # choose the random training point (x_it, y_it)
-        x_it = training_points[random_index]
-        y_it = training_labels[random_index]
-        # choose the learning rate for this round 
-        learning_rate = 1 / (t * regularization_coefficent)
-        # update the predictor according to the hinge loss gradient 
-        if y_it * np.dot(w, x_it) < 1:
-            w = (1 - 1 / t) * w + learning_rate * y_it * x_it
-        else:
-            w = (1 - 1 / t) * w
-    # REPORT:
-    # NOTE: I adapted this version of the algorithm from https://home.ttic.edu/~nati/Publications/PegasosMPB.pdf
-    #       the name of the variable are adapted to be consistent with the pseudo code reported
-    #       there are some differences with the pseudocode presented during the lecture:
-    #       - the gradient descent update is written in a slightly different way using a conditional instead of an indicator function, I choose to remain consistent also with this stilistic choice
-    #       - Instead of return the average of all the weight vector calculated at each step, the paper returns only the last one. The authors indicates that they notate an improvment in performance returning the last vector instead of the average
-    #       - The author also provide a mini-batch version of the Pegasos algorithm, with another hyperparameter (the mini-batch size k)
-    #       Another approach proposed by the paper is sampling without replacement: so a random permutation of the training set is choosen and the updates are performed in order on the new sequence of data.
-    #       In this way in one epoch a training point is sampled only once. At the end of each epoch we can updated the predictor from the same permutation or shuffle the data another time.
-    #       Although the authors report that this approach gives better results than uniform sampling as I did, I haven't experiment this variant of the algorithm
-    return LinearPredictor(w)
-
-def kernelized_pegasos(training_points: np.ndarray, training_labels: np.ndarray, kernel: Kernel, regularization_coefficent=0.1, rounds=1000) -> Predictor:
-    samples, _ = training_points.shape
-    alpha = np.zeros(samples)
-    # NOTE: t the index of current round are 1-based in the for loop to avoid division by zero
-    for t in range(1, rounds + 1):
-        random_index = random.randint(0, samples - 1)
-        # choose the random training point (x_it, y_it)
-        x_it = training_points[random_index]
-        y_it = training_labels[random_index]
-        learning_rate = 1 / (regularization_coefficent * t)
-        # TODO: should we exclude somehow the alpha for the current index? 
-        if y_it * learning_rate * np.dot(np.multiply(alpha, training_labels), kernel(training_points, x_it)) < 1:
-            alpha[random_index] += 1
-    # TODO: we should generalize the predictor into a protocol or something like that and create subclass for linear and the two kernel algorithm
-    def predict(X: np.ndarray) -> np.ndarray:
-        k = kernel(training_points, X)
-        d = np.dot(np.multiply(alpha, training_labels), k)
-        return np.sign(d)
-    return predict
-
-def sigmoid(z: float) -> float:
-    """Computes the sigmoid function over a scalar `z`"""
-    return 1 / (1 + exp(-z))
-
-def train_regularized_logistic_classification(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> LinearPredictor:
-    samples, features = training_points.shape
-    w = np.zeros(features)
-    # NOTE: t the index of current round are 1-based in the for loop to avoid division by zero
-    for t in range(1, rounds + 1):
-        random_index = random.randint(0, samples - 1)
-        # choose the random training point (x_it, y_it)
-        x_it = training_points[random_index]
-        y_it = training_labels[random_index]
-        # choose the learning rate for this round 
-        learning_rate = 1 / (t * regularization_coefficent)
-        # update the predictor according to the logistic loss gradient 
-        w = (1 - 1 / t) * w + learning_rate * sigmoid(-y_it * np.dot(w, x_it)) * y_it * x_it        
-    return LinearPredictor(w)
 
 class HyperparameterSearchResult:
     """The result of an hyperparameter search: it contains a resulting predictor function, the objective value
@@ -172,7 +76,6 @@ def polynomial_feature_expansion(X: np.ndarray, n: int) -> np.ndarray:
         poly_features[:, i] = np.prod(X[:, comb], axis=1)
     return poly_features
 
-
 def load_dataset(path: str) -> np.ndarray:
     """Load the csv dataset located at `path` in a randomized order"""
     dataset = pd.read_csv(path).values
@@ -192,61 +95,16 @@ def plot_feature_correlation(X: np.ndarray):
             plt.ylabel(f'Feature {j}')
             plt.show()
 
-def preprocessing(dataset: np.ndarray, args):
-    dataset_size, _ = dataset.shape
-    # REPORT: also say that I check for duplicates and don't find any of them
-    if args.remove_outliers:
-        # REPORT: another approach I tried is removing the outliers from the dataset but it is already sufficently cleaned
-        #         in fact using the Z-score methods and removing 265 outliers over a dataset size of 10_000
-        #         affects the performance of the model in a minimum way with no significative changes, in fact in some cases it is (even if only slightly) worsening
-        #         comparison data table
-        # remove outliers from the dataset using the Z-score method:
-        # we calculate the score for each value as Z = (x - u) / o where u is the mean and o is the variance of the data on the feature
-        # then we remove all the points with a Z-score greater or equals than 3 in absolute value
-        mean = np.mean(dataset, axis=0)
-        std = np.std(dataset, axis=0)
-        z_score = (dataset - mean) / std
-        if args.verbose:
-            # DEBUG: print how many outliers we remove
-            outliers = dataset[np.any(np.abs(z_score) >= 3, axis=1)]
-            n_outliers, _ = outliers.shape
-            logging.debug(f"preprocessing: removed {n_outliers} outliers on a dataset of {dataset_size} elements")
-        dataset = dataset[np.any(np.abs(z_score) < 3, axis=1)]
-
-    # split the dataset in training and test set
-    train_set, test_set = split_dataset(dataset, training_size=0.8)
-    train_size, _ = train_set.shape
-    test_size, _ = test_set.shape
-    # split datapoints and labels into different arrays for training and test set
-    X_train = train_set[:, :-1]
-    y_train = train_set[:, -1]
-    X_test = test_set[:, :-1]
-    y_test = test_set[:, -1]
-    # REPORT: NOTE: show the theoretical bound to justify why we use scaling or stadardization (X the radius on the bound for OGD on strongly convex funct)
-    # try which one is the best and justify the choice, or maybe better try both and show which algorithm perform better
-    # rescale the data to fit in a normal distribution
-    if args.preprocess == 'standardize':
-        logging.debug('preprocessing: feature rescaling standardization')
-        X_train, X_test = standardize(X_train, X_test)
-    elif args.preprocess == 'normalize':
-        logging.debug('preprocessing: feature rescaling with normalization')
-        X_train, X_test = scale(X_train, X_test)
-    else:
-        logging.debug('preprocessing: no feature rescaling')
-    
-    # preprocessing: feature augmentation
-    # add 1 fixed feature to X_train and X_test to express non omogeneous linear separator
-    X_train = np.column_stack((X_train, np.ones(train_size)))
-    X_test  = np.column_stack((X_test, np.ones(test_size)))
-
-    training_set = X_train, y_train
-    test_set = X_test, y_test
-    return training_set, test_set
 
 def train_predictor(dataset: np.ndarray, args):
     """Train a predictor on the dataset based on the given arguments and 
     serialize the result to the output argument"""
-    training_set, test_set = preprocessing(dataset, args)
+    scaling = {
+        'standardize': ScalingType.STANDARDIZE,
+        'normalize': ScalingType.NORMALIZE,
+        'none': ScalingType.NONE,
+    }[args.preprocess]
+    training_set, test_set = preprocessing(dataset, scaling, args.remove_outliers)
     X_train, y_train = training_set
     X_test, y_test = test_set
     
@@ -422,7 +280,6 @@ def main():
     # execute routine based on the cli arguments
     args.func(dataset, args)
     
-
 
 if __name__ == '__main__':
     main()
