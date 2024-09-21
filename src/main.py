@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from itertools import combinations_with_replacement, product
-from functools import partial
 from typing import Any
 from math import inf, exp
 
 import argparse
+import logging
+import pickle
 import random
 
 import numpy as np
@@ -57,7 +58,6 @@ def set_error(loss, predictor: Predictor, points: np.ndarray, labels: np.ndarray
     predictions = predictor(points)
     return np.sum(loss(labels, predictions)) / m
 
-# TODO: the number of rounds should be calculated and derivated (show it on the report) and not passed as hyperparameter
 # TODO: try minibatch variant and write and compare results on the report (also for logistic)
 def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> LinearPredictor:
     samples, features = training_points.shape
@@ -147,25 +147,12 @@ def grid_search(algorithm, training_points, training_labels, **hyperparameters) 
         hyperparameters_configuration = dict(zip(hyperparameters, parameter_values))
         predictor = algorithm(X_dev, y_dev, **hyperparameters_configuration)
         objective = set_error(zero_one_loss, predictor, X_val, y_val)
-        # DEBUG:
-        # TODO: instead of this print we should provide an hook like function that accept all the current hyper parameter configuration
-        #       with objective (validation error) and maybe training error 
-        #       in this way we can fix all the hyperparameters and let only one varying, collect all the point for that hyperparameter and
-        #       plot at the end of the function using matplotlib
-        #       
-        #       plotter = HyperparameterPlotter(hyperparam='regularization_coefficent')
-        #       grid_search(..., plotter.add_point)
-        #       plotter.plot_validation_error()
-        #       plotter.plot_test_error()
-        #       plotter.show()
-        # DEBUG:
-        print(f"{hyperparameters_configuration} -> {objective}")
+        logging.debug(f"{hyperparameters_configuration} -> {objective}")
         if objective < best_objective:
             best_objective = objective
             best_configuration = hyperparameters_configuration
 
-    # DEBUG:
-    print("-" * 50 + '\n')
+    logging.debug("terminated hyperparameter search\n")
     # we should retrain the algorithm on the whole training set 
     predictor = algorithm(training_points, training_labels, **best_configuration)
     return HyperparameterSearchResult(best_configuration, predictor, best_objective)
@@ -205,29 +192,7 @@ def plot_feature_correlation(X: np.ndarray):
             plt.ylabel(f'Feature {j}')
             plt.show()
 
-def main():
-    parser = argparse.ArgumentParser()
-    # TODO: add help for each options
-    parser.add_argument('-i', '--input', default='./datasets/dataset.csv', type=str, 
-                        help="The path for the input dataset")
-    parser.add_argument('-s', '--seed', default=31415, type=int,
-                        help="The PRNG seed to allow reproducible results")
-    parser.add_argument('-v', '--verbose', action='store_true')
-    parser.add_argument('--remove-outliers', action='store_true',
-                        help="If specified remove all the outliers from the "
-                        "dataset using the Z-score method")
-    parser.add_argument('--preprocess', 
-                        choices=('normalize', 'standardize', 'none'),
-                        default='standardize')
-    args = parser.parse_args()
-    
-    # print verbose
-    def printv(*largs, **kwargs):
-        if args.verbose:
-            print(*largs, **kwargs)
-
-    np.random.seed(args.seed)
-    dataset = load_dataset(args.input)
+def preprocessing(dataset: np.ndarray, args):
     dataset_size, _ = dataset.shape
     # REPORT: also say that I check for duplicates and don't find any of them
     if args.remove_outliers:
@@ -245,7 +210,7 @@ def main():
             # DEBUG: print how many outliers we remove
             outliers = dataset[np.any(np.abs(z_score) >= 3, axis=1)]
             n_outliers, _ = outliers.shape
-            print(f"preprocessing: removed {n_outliers} outliers on a dataset of {dataset_size} elements")
+            logging.debug(f"preprocessing: removed {n_outliers} outliers on a dataset of {dataset_size} elements")
         dataset = dataset[np.any(np.abs(z_score) < 3, axis=1)]
 
     # split the dataset in training and test set
@@ -261,121 +226,202 @@ def main():
     # try which one is the best and justify the choice, or maybe better try both and show which algorithm perform better
     # rescale the data to fit in a normal distribution
     if args.preprocess == 'standardize':
-        printv('preprocessing: feature rescaling standardization')
+        logging.debug('preprocessing: feature rescaling standardization')
         X_train, X_test = standardize(X_train, X_test)
     elif args.preprocess == 'normalize':
-        printv('preprocessing: feature rescaling with normalization')
+        logging.debug('preprocessing: feature rescaling with normalization')
         X_train, X_test = scale(X_train, X_test)
     else:
-        printv('preprocessing: no feature rescaling')
-    
-    # preprocessing: show if some feature are correlated
-    # REPORT: plotting the feature on the training set on both axis to spot correlation I observed that the feature 2 and 5 have a linear correlation (with a negative coefficent)
-    #         as the feature 5 and 9 (with positive coefficent). One possibility in this case during the preprocessing of the data
-    #         is to remove the correlated features and leave only one of them to avoid redundancy of the data.
-    #         I don't follow this approach because there is a sensibile noise in the correlation and removing some features can lead 
-    #         to removing this noise that can encode important information on the model
-    # plot_feature_correlation(X_train)
+        logging.debug('preprocessing: no feature rescaling')
     
     # preprocessing: feature augmentation
     # add 1 fixed feature to X_train and X_test to express non omogeneous linear separator
     X_train = np.column_stack((X_train, np.ones(train_size)))
     X_test  = np.column_stack((X_test, np.ones(test_size)))
+
+    training_set = X_train, y_train
+    test_set = X_test, y_test
+    return training_set, test_set
+
+def train_predictor(dataset: np.ndarray, args):
+    """Train a predictor on the dataset based on the given arguments and 
+    serialize the result to the output argument"""
+    training_set, test_set = preprocessing(dataset, args)
+    X_train, y_train = training_set
+    X_test, y_test = test_set
     
-    perceptron = train_perceptron(X_train, y_train, max_epochs=20)
-    print('[Perceptron]')
-    print(f"trained perceptron: {perceptron.features}")
-    training_error = set_error(zero_one_loss, perceptron, X_train, y_train)
-    printv(f"training error for perceptron: {training_error}")
-    test_error = set_error(zero_one_loss, perceptron, X_test, y_test)
-    print(f"test error for perceptron: {test_error}\n")
+    if args.algorithm == 'perceptron':
+        predictor = train_perceptron(X_train, y_train, max_epochs=20)
+        logging.info('[Perceptron]')
+        logging.info(f"trained perceptron: {predictor.features}")
+        training_error = set_error(zero_one_loss, predictor, X_train, y_train)
+        logging.debug(f"training error for perceptron: {training_error}")
+        test_error = set_error(zero_one_loss, predictor, X_test, y_test)
+        logging.info(f"test error for perceptron: {test_error}\n")
+    elif args.algorithm == 'pegasos':
+        logging.info('[Pegasos]')
+        search_result = grid_search(pegasos, X_train, y_train, 
+                                    regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
+                                    rounds=(100_000,))
+        logging.debug(f'best validation error: {search_result.objective}')
+        logging.debug(f'best hyperparameters: {search_result.parameters}') 
+        logging.info(f"grid cv pegasos: {search_result.predictor.features}")
+        test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
+        logging.info(f"test error for cv pegasos: {test_error}\n")
+        predictor = search_result.predictor
+    elif args.algorithm == 'logistic-regression':
+        logging.info('[Regularized Logistic Regression]')
+        search_result = grid_search(train_regularized_logistic_classification, 
+                                    X_train, y_train, 
+                                    regularization_coefficent=[0.1, 1, 10, 100, 1000], 
+                                    rounds=(100_000,))
+        logging.debug(f'best validation error: {search_result.objective}')
+        logging.debug(f'best hyperparameters: {search_result.parameters}') 
+        logging.info(f"grid cv logistic regression: {search_result.predictor.features}")
+        test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
+        logging.info(f"test error for cv logistic regression: {test_error}\n")
+        predictor = search_result.predictor
+    elif args.algorithm == 'kernelized-perceptron':
+        logging.info('[Kernelized Perceptron]')
+        kernels = [PolynomialKernel(degree) for degree in range(1, 5)]
+        kernels += [GaussianKernel(gamma) for gamma in (0.01, 0.1, 1, 10)]
+        search_result = grid_search(train_kernelized_perceptron, 
+                                    X_train, y_train, 
+                                    kernel=kernels)
+        logging.info(f'best hyperparameters: {search_result.parameters}') 
+        logging.debug(f'validation error for kernelized perceptron: {search_result.objective}')
+        training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
+        logging.debug(f'training error for kernelized perceptron: {training_error}')
+        test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
+        logging.info(f'test error for kernelized perceptron: {test_error}\n')
+        predictor = search_result.predictor
+    elif args.algorithm == 'kernelized-pegasos': 
+        logging.info('[Kernelized Pegasos]')
+        kernels = [PolynomialKernel(degree) for degree in range(1, 5)]
+        kernels += [GaussianKernel(gamma) for gamma in (0.01, 0.1, 1, 10)]
+        search_result = grid_search(kernelized_pegasos, 
+                                    X_train, y_train,
+                                    regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100], 
+                                    kernel=kernels,
+                                    rounds=(100_000,))
+        logging.debug(f'validation error for kernelized pegasos: {search_result.objective}')
+        logging.debug(f'best hyperparameters: {search_result.parameters}') 
+        training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
+        logging.debug(f'training error for kernelized pegasos: {training_error}')
+        test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
+        logging.info(f'test error for kernelized pegasos: {test_error}\n')
+        predictor = search_result.predictor
+    else:
+        # try perceptron and svm with polynomial feature expansion of degree 2
+        X_train = polynomial_feature_expansion(X_train, 2)
+        X_test = polynomial_feature_expansion(X_test, 2)
+        if args.algorithm == 'feature-expanded-perceptron':
+            logging.info('[Feature Expanded Perceptron]')
+            perceptron = train_perceptron(X_train, y_train, max_epochs=20)
+            logging.info(f"trained perceptron with polynomial feature expansion: {perceptron.features}")
+            training_error = set_error(zero_one_loss, perceptron, X_train, y_train)
+            logging.debug(f"training error for perceptron with polynomial feature expansion: {training_error}")
+            test_error = set_error(zero_one_loss, perceptron, X_test, y_test)
+            logging.info(f"test error for perceptron with polynomial feature expansion: {test_error}\n")
+        elif args.algorithm == 'feature-expanded-pegasos':
+            logging.info('[Feature Expanded Pegasos]')
+            search_result = grid_search(pegasos, X_train, y_train,
+                                        regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
+                                        rounds=(1_000_000,))
+            logging.debug(f'best validation error: {search_result.objective}')
+            logging.debug(f'best hyperparameters: {search_result.parameters}') 
+            logging.info(f"trained pegasos with cv and polynomial feature expansion: {search_result.predictor.features}")
+            training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
+            logging.debug(f"training error for pegasos with cv and polynomial feature expansion: {training_error}")
+            test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
+            logging.info(f"test error for pegasos with cv and polynomial feature expansion: {test_error}\n")
+        elif args.algorithm == 'feature-expanded-logistic-regression':
+            logging.info('[Feature expanded Regularized Logistic Regression]')
+            search_result = grid_search(train_regularized_logistic_classification, 
+                                        X_train, y_train,
+                                        regularization_coefficent=[0.1, 1, 10, 100, 1000], 
+                                        rounds=(100_000,))
+            logging.debug(f'best validation error: {search_result.objective}')
+            logging.debug(f'best hyperparameters: {search_result.parameters}') 
+            logging.info(f"grid cv logistic regression with feature expansion: {search_result.predictor.features}")
+            training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
+            logging.debug(f"training error for cv logistic regression polynomial feature expansion: {training_error}")
+            test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
+            logging.info(f"test error for cv logistic regression with feature expansion: {test_error}\n")
+        else:
+            raise NotImplementedError(f'Not implemented algorithm {args.algorithm}')    
     
-    print('[Pegasos]')
-    search_result = grid_search(pegasos, X_train, y_train, 
-                                regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
-                                rounds=(100_000,))
-    printv(f'best validation error: {search_result.objective}')
-    printv(f'best hyperparameters: {search_result.parameters}') 
-    print(f"grid cv pegasos: {search_result.predictor.features}")
-    test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
-    print(f"test error for cv pegasos: {test_error}\n")
+    with open(args.output, 'wb+') as f:
+        pickle.dump(predictor, f)
+
+def run_predictor(dataset: np.ndarray, args):
+    """Load a serialized predictor and compute the training and test error.   
+    When you run this command you should be aware that you should provide 
+    the same seed and the same preprocessing options that you give when you 
+    have trained the predictor to have consistent results"""
+    training_set, test_set = preprocessing(dataset, args)
+    X_train, y_train = training_set
+    X_test, y_test = test_set
+    with open(args.predictor, 'rb') as f:
+        predictor = pickle.load(f)
+    training_error = set_error(zero_one_loss, predictor, X_train, y_train)
+    logging.info(f"training error for predictor saved at {args.predictor!r}: {training_error}")
+    test_error = set_error(zero_one_loss, predictor, X_test, y_test)
+    logging.info(f"test error for predictor saved at {args.predictor!r} : {test_error}\n")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    # TODO: add subcommands train and run
+    parser.add_argument('-i', '--input', default='./datasets/dataset.csv', type=str, 
+                        help="The path for the input dataset")
+    parser.add_argument('-s', '--seed', default=31415, type=int,
+                        help="The PRNG seed to allow reproducible results")
+    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('--remove-outliers', action='store_true',
+                        help="If specified remove all the outliers from the "
+                        "dataset using the Z-score method")
+    parser.add_argument('--preprocess', 
+                        choices=('normalize', 'standardize', 'none'),
+                        default='standardize')
     
-    print('[Regularized Logistic Regression]')
-    search_result = grid_search(train_regularized_logistic_classification, 
-                                X_train, y_train, 
-                                regularization_coefficent=[0.1, 1, 10, 100, 1000], 
-                                rounds=(100_000,))
-    printv(f'best validation error: {search_result.objective}')
-    printv(f'best hyperparameters: {search_result.parameters}') 
-    print(f"grid cv logistic regression: {search_result.predictor.features}")
-    test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
-    print(f"test error for cv logistic regression: {test_error}\n")
+    subparsers = parser.add_subparsers(required=True)
+    available_algorithms = [
+        'perceptron', 
+        'pegasos', 
+        'logistic-regression', 
+        'feature-expanded-perceptron', 
+        'feature-expanded-pegasos', 
+        'feature-expanded-logistic-regression', 
+        'kernelized-pegasos', 
+        'kernelized-perceptron',
+        ]
+    # define option parameters to train the algorithms
+    # TODO: add help for this subcommand
+    parser_train = subparsers.add_parser('train')
+    parser_train.add_argument('algorithm', type=str, 
+                            choices=available_algorithms)
+    parser_train.add_argument('output', type=str)
+    parser_train.set_defaults(func=train_predictor)
 
-    print('[Kernelized Perceptron]')
-    kernels = [PolynomialKernel(degree) for degree in range(1, 5)]
-    kernels += [GaussianKernel(gamma) for gamma in (0.01, 0.1, 1, 10)]
-    search_result = grid_search(train_kernelized_perceptron, 
-                                X_train, y_train, 
-                                kernel=kernels)
-    print(f'best hyperparameters: {search_result.parameters}') 
-    printv(f'validation error for kernelized perceptron: {search_result.objective}')
-    training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
-    printv(f'training error for kernelized perceptron: {training_error}')
-    test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
-    print(f'test error for kernelized perceptron: {test_error}\n')
+    # TODO: add help for this subcommand
+    parser_run = subparsers.add_parser('run')
+    parser_run.add_argument('predictor', type=str)
+    parser_run.set_defaults(func=run_predictor)
 
-    print('[Kernelized Pegasos]')
-    kernels = [PolynomialKernel(degree) for degree in range(1, 5)]
-    kernels += [GaussianKernel(gamma) for gamma in (0.01, 0.1, 1, 10)]
-    search_result = grid_search(kernelized_pegasos, 
-                                X_train, y_train,
-                                regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100], 
-                                kernel=kernels,
-                                rounds=(100_000,))
-    printv(f'validation error for kernelized pegasos: {search_result.objective}')
-    printv(f'best hyperparameters: {search_result.parameters}') 
-    training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
-    printv(f'training error for kernelized pegasos: {training_error}')
-    test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
-    print(f'test error for kernelized pegasos: {test_error}')
-    print('\n')
+    # parse command line arguments
+    args = parser.parse_args()
 
-    # try perceptron and svm with polynomial feature expansion of degree 2
-    X_train = polynomial_feature_expansion(X_train, 2)
-    X_test = polynomial_feature_expansion(X_test, 2)
+    # setting up logging, choose to show debug message only if verbose is active
+    level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(format='%(message)s', level=level)
+    # loading and shuffling the dataset    
+    np.random.seed(args.seed)
+    dataset = load_dataset(args.input)
 
-    print('[Feature Expanded Perceptron]')
-    perceptron = train_perceptron(X_train, y_train, max_epochs=20)
-    print(f"trained perceptron with polynomial feature expansion: {perceptron.features}")
-    training_error = set_error(zero_one_loss, perceptron, X_train, y_train)
-    printv(f"training error for perceptron with polynomial feature expansion: {training_error}")
-    test_error = set_error(zero_one_loss, perceptron, X_test, y_test)
-    print(f"test error for perceptron with polynomial feature expansion: {test_error}\n")
+    # execute routine based on the cli arguments
+    args.func(dataset, args)
     
-    print('[Feature Expanded Pegasos]')
-    search_result = grid_search(pegasos, X_train, y_train,
-                                regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
-                                rounds=(1_000_000,))
-    printv(f'best validation error: {search_result.objective}')
-    printv(f'best hyperparameters: {search_result.parameters}') 
-    print(f"trained pegasos with cv and polynomial feature expansion: {search_result.predictor.features}")
-    training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
-    printv(f"training error for pegasos with cv and polynomial feature expansion: {training_error}")
-    test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
-    print(f"test error for pegasos with cv and polynomial feature expansion: {test_error}\n")
-
-    print('[Feature expanded Regularized Logistic Regression]')
-    search_result = grid_search(train_regularized_logistic_classification, 
-                                X_train, y_train,
-                                regularization_coefficent=[0.1, 1, 10, 100, 1000], 
-                                rounds=(100_000,))
-    printv(f'best validation error: {search_result.objective}')
-    printv(f'best hyperparameters: {search_result.parameters}') 
-    print(f"grid cv logistic regression with feature expansion: {search_result.predictor.features}")
-    training_error = set_error(zero_one_loss, search_result.predictor, X_train, y_train)
-    printv(f"training error for cv logistic regression polynomial feature expansion: {training_error}")
-    test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
-    print(f"test error for cv logistic regression with feature expansion: {test_error}\n")
 
 
 if __name__ == '__main__':
