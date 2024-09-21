@@ -24,6 +24,11 @@ $$
 This shows a bound on the number of mistakes made by the Perceptron algorithm on any data sequence of arbitrary length $T$.\\
 $h_{t}(\boldsymbol{u})$ is the hinge loss for the $t$-example.\\
 
+Both the result show a linear dependence with the number of mistakes $M$ and  $X^2$, the radius of the smaller sphere that inscribe all the training points.\\
+This also show why, in our case, both \textit{standardization} and \textit{normalization} are so effective:\\
+We are reducing the radius of this sphere and so having a thighter bound on the number of mistakes.\\
+
+
 \subsection{Naive version}
 \begin{algorithm}[H]
     \SetAlgoLined

@@ -9,6 +9,24 @@ Given a linearly separable training set $S = \{(\boldsymbol{x}_1, y_1), \dots, (
     & \text{s.t.} \ y_t \boldsymbol{w}^\top \boldsymbol{x}_t \geq 1 \ \text{for} \ t = 1, \dots, m 
 \end{align*}
 
+In case the training data is not separable we try to minimize both how much of each constraint is violated and the margin of the separator.\\
+We express this as another convex problem that uses the slack variables $\xi_t$ and a regularization coefficent $\lambda$.
+When the regularization coefficent is large the algorihtm generate a predictor that allows more classification error in the training set.\\
+Viceversa if $\lambda$ is small we try to minimize the classification error we made.\\
+Usualy for $\lambda$ too small the error try to minimize the misclassification, so the training error is low and we likely to overfit.\\
+Instead for choice of $\lambda$ too big we have an high training error and if even the test error is high we underfit. \\
+In the next subsection, I describe how I choose the hyperparameter of the regularisation coefficient and how the test and training errors vary when I change it more precisely.\\ % TODO: label reference
+
+\begin{align*}
+    \underset{(\boldsymbol{w}, \boldsymbol{\xi}) \in \mathbb{R}^{d+m}}{\min} \quad & \frac{\lambda}{2} \Vert \boldsymbol{w} \Vert^2 + \frac{1}{m} \sum_{t = 1}^m \xi_t \\
+    \text{s.t.} \quad & y_t \boldsymbol{w}^\top \boldsymbol{x}_t \geq 1 - \xi_t & t = 1, \dots, m \\
+    & \xi_t \geq 0 \ \text{for} & t = 1, \dots, m
+\end{align*}
+
+Now, fix $\boldsymbol{w} \in \mathbb{R}^d$, we can see $\xi_t = \left[1 - y_t \boldsymbol{w}^\top \boldsymbol{x}_t \right]_+$ which is the hinge loss  $h_{t}(\boldsymbol{w})$.\\
+
+The SVM problem can be rewritten as $$\underset{\boldsymbol{w} \in \mathbb{R}^d}{\min} \ \frac{\lambda}{2} \Vert \boldsymbol{w} \Vert^2 + \frac{1}{m} \sum_{t = 1}^m h_{t}(\boldsymbol{w})$$.\\
+
 % TODO: in case the training set is not separable
 % TODO: explain the regularization parameter and says that is an hyperparameter
 The optimization problem that describe the Support Vector Machine is optimized using the Pegasos algorithm.\\
@@ -43,10 +61,10 @@ I adapted this version of the algorithm from \textit{Pegasos: Primal Estimated s
         Choose $i_t$ uniformly at random.\\
         Set $\eta_t = \frac{1}{\lambda t}$\\
         \If{$y_{it} \boldsymbol{w}_t^T x_{i_{t}} < 1$}{
-            Set $\boldsymbol(w)_{t+1} \leftarrow (1 - \eta_t \lambda)\boldsymbol{w}_t + \eta_t y_{it} \boldsymbol{x}_{i_{t}}$
+            Set $\boldsymbol{w}_{t+1} \leftarrow (1 - \eta_t \lambda)\boldsymbol{w}_t + \eta_t y_{it} \boldsymbol{x}_{i_{t}}$
             }
             \Else {
-                Set $\boldsymbol(w)_{t+1} \leftarrow (1 - \eta_t \lambda)\boldsymbol{w}_t$
+                Set $\boldsymbol{w}_{t+1} \leftarrow (1 - \eta_t \lambda)\boldsymbol{w}_t$
         }
     }    
     Output $\boldsymbol{w}_{T+1}$
@@ -61,7 +79,7 @@ Between the code presented in the lecture and this one presented in the paper th
     I embrace also this variation.\\
     \item In the pseudo code of Pegasos they also describe an projection step to clamp the magnitude of the linear predictor, but I don't incorporate it.\\ 
     % TODO: mini-batch: if I test also the mini-batch I should report if I notice some improvment and how the algorithm change based on the hyperparameter
-    \item The author also provide a mini-batch version of the Pegasos algorithm, with another hyperparameter (the mini-batch has size k).\\
+    \item The author also provide a mini-batch version of the Pegasos algorithm, using the batch size $k$ as another hyperparameter.\\
 \end{itemize}
 
 Another approach proposed by the paper is {\bf sampling without replacement}: so a random permutation of the training set is choosen and the updates are performed in order on the new sequence of data.
