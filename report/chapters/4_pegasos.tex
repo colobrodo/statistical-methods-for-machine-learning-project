@@ -9,13 +9,12 @@ Given a linearly separable training set $S = \{(\boldsymbol{x}_1, y_1), \dots, (
     & \text{s.t.} \ y_t \boldsymbol{w}^\top \boldsymbol{x}_t \geq 1 \ \text{for} \ t = 1, \dots, m 
 \end{align*}
 
-In case the training data is not separable we try to minimize both how much of each constraint is violated and the margin of the separator.\\
-We express this as another convex problem that uses the slack variables $\xi_t$ and a regularization coefficent $\lambda$.
-When the regularization coefficent is large the algorihtm generate a predictor that allows more classification error in the training set.\\
-Viceversa if $\lambda$ is small we try to minimize the classification error we made.\\
-Usualy for $\lambda$ too small the error try to minimize the misclassification, so the training error is low and we likely to overfit.\\
-Instead for choice of $\lambda$ too big we have an high training error and if even the test error is high we underfit. \\
-In the next subsection, I describe how I choose the hyperparameter of the regularisation coefficient and how the test and training errors vary when I change it more precisely.\\ % TODO: label reference
+In case the training data is not separable, we try to minimise both how much of each constraint is violated and the margin of the separator.\\
+We express this as another convex problem using the slack variables $\xi_t$ and a regularisation coefficient $\lambda$.
+If the regularisation coefficient is large, the algorithms will generate a predictor that allows more classification error in the training set.\\
+Conversely, if $\lambda$ is small, we try to minimise the classification error we have made.\\
+Usually for $\lambda$ too small, we try to minimise the misclassification, so the training error is small and we are likely to overfit.\\
+Instead, for choices of $\lambda$ too large, we have a high training error, and if the test error is also high, we will underfit. \\In the next subsection, I describe how I choose the hyperparameter of the regularisation coefficient and how the test and training errors vary when I change it more precisely.\\ % TODO: label reference
 
 \begin{align*}
     \underset{(\boldsymbol{w}, \boldsymbol{\xi}) \in \mathbb{R}^{d+m}}{\min} \quad & \frac{\lambda}{2} \Vert \boldsymbol{w} \Vert^2 + \frac{1}{m} \sum_{t = 1}^m \xi_t \\
@@ -27,8 +26,7 @@ Now, fix $\boldsymbol{w} \in \mathbb{R}^d$, we can see $\xi_t = \left[1 - y_t \b
 
 The SVM problem can be rewritten as $$\underset{\boldsymbol{w} \in \mathbb{R}^d}{\min} \ \frac{\lambda}{2} \Vert \boldsymbol{w} \Vert^2 + \frac{1}{m} \sum_{t = 1}^m h_{t}(\boldsymbol{w})$$.\\
 
-% TODO: in case the training set is not separable
-% TODO: explain the regularization parameter and says that is an hyperparameter
+% TODO: computational cost of the svm model
 The optimization problem that describe the Support Vector Machine is optimized using the Pegasos algorithm.\\
 The Pegasos algorithm is a variant of the Stocastic Gradient Descent algorithm, where at each step a point (or a set of points in the mini-batch variant) is sampled randomly from the training set
 and the current predictor is updated with the negative gradient of the loss of that training example weighted by a learning rate factor $\eta_t$.\\
@@ -77,7 +75,7 @@ Between the code presented in the lecture and this one presented in the paper th
     \item Instead of return the average of all the weight vector calculated at each step, the paper returns only the last one.\\ 
     The authors indicates that they notate an improvment in performance returning the last vector instead of the average.\\ 
     I embrace also this variation.\\
-    \item In the pseudo code of Pegasos they also describe an projection step to clamp the magnitude of the linear predictor, but I don't incorporate it.\\ 
+    \item In the pseudo code of Pegasos they also describe an optional projection step to clamp the magnitude of the linear predictor, but I don't incorporate it.\\ 
     % TODO: mini-batch: if I test also the mini-batch I should report if I notice some improvment and how the algorithm change based on the hyperparameter
     \item The author also provide a mini-batch version of the Pegasos algorithm, using the batch size $k$ as another hyperparameter.\\
 \end{itemize}
@@ -88,23 +86,76 @@ After each epoch we can choose if we restart to sample data sequentially accordi
 Although the authors report that this approaches gives better results than uniform sampling as I did, I haven't experiment this variant of the algorithm.\\
 
 \subsubsection{Hyperparameter tuning}
-Differently from the perceptron the Pegasos algorithm has an hyperparameter to choose: The regularization coefficent $\lambda$.\\
-To choose the best hyperparameter for this algorithm (and the other implement) I choose to use the grid search method.\\
-% TODO: revisit separation of training into dev and validation set
-I divide the dataset into 3 different subset: training, test and validation set.\\
-The validation set is used as a surrogate test set to obtain an estimate of the risk.\\
-After splitting the data I choose a finite subset of the possible hyperparameter values $\Theta_0 \subseteq \Theta$ and for each of it create a predictor $h_\theta$ trained with the choosen hyperparameter on the training set.\\
-The risk is then estimate using the validation error on each predictor, and the one with the lower risk is then choosen.
-% TODO: talk about the implementation of the grid_search_cv function
-% TODO: in the instance of Pegasos we use the grid search over the combination of number of round and regularization coefficent, the values choosen for the two hyperparameters are rispectivly %TODO: add a table with the paramete here
-%       the best combination of hyperparameter is given by ... 
-%       we can use the validation error also to test how the algorithm behave using different hyperparameters. In particular if the validation error is high and the training error is low we are overfitting, viceversa if both are high we are underfitting
-%       TODO: changing the regularization coefficent (what the theory says: increasing it too much we underfit) result of our experiment: 
-%         table:    training error      validation error 
-%         lambda                            bold for the minimum
+Unlike the perceptron, the Pegasos algorithm had a hyperparameter to choose from: The regularisation coefficient $\lambda$.\\
+To choose the best hyperparameter for this algorithm (and the others that I will implement), I choose the grid search method.\
+I divide the training set into 2 different subsets: $S_{traing}$ and $S_{dev}$.\\
+The validation set ($S_{dev}$) is used as a surrogate test set to get an estimate of the risk.\\
+I choose a finite subset of the possible hyperparameter values ($\Theta_0 \subseteq \Theta$) and for each of them I create a predictor $h_\theta$ which is trained with the chosen hyperparameter on $S_{train}$.\\
+The risk is then estimated using the validation error on each predictor, and the one with the lower risk is chosen.\\
+The implementation of the grid search in my codebase is in the function 'grid\_search', I used python know arguments to pass a dictionary where the key is the name of the hyperparameter (the same as used as an argument in the training algorithm) and the value is an iterator containing the subset of possible values ($\Theta_0$).\\ 
+In this case, I choose the set $\Theta_0 = \{ 0.0001, 0.001, 0.01, 0.1, 1, 10, 100 \}$.\\
+
+\begin{center}
+    \begin{tabular}{| c | c | c |}
+        \hline
+        $\lambda$ & $S_{val}$ & $S_{train}$ \\
+        \hline
+        0.0001 & 0.3725 & 0.3521666 \\
+        \hline
+        0.001 & 0.2925 & 0.281333 \\
+        \hline
+        0.01 & 0.273 & 0.27 \\
+        \hline
+        \textbf{0.1} & \textbf{0.267} & \textbf{0.2661666} \\
+        \hline
+        1 & 0.273 & 0.269333 \\
+        \hline
+        10 & 0.279 & 0.2775 \\
+        \hline
+        100 & 0.2805 & 0.276333 \\
+        \hline
+    \end{tabular}
+    \\
+    The values $S_{val}$ and $S_{train}$ while $\lambda$ changes.\\
+\end{center}
+
+% TODO: rivedere questa parte, devo eseguire i test error su tutti i predictor??
+Looking at the table we can deduce for which choice of $\lambda$ we underfit and overfit and in our case the sweet spot is the value for $\lambda = 0.1$.\\
+The test error for the best predictor is 0.2935.\\
+We can also see that for smaller value of lambda we have an high test error and model is overfitting while for large value are likely to underfit.\\
+The weight for the Pegasos algorithm are the following: \\
+0.2080856  -0.0066276   0.07067274 -0.26477777  0.24795273 -0.06704699\\
+0.28821758  0.65130349  0.16619769 -0.06650096 -0.0724
 
 \subsection{Logistic regression}
+Logistic regression aim to learn the function $\eta(\boldsymbol{x}) = \mathbb{P}(Y = +1\ |\ \textbf{X} = \boldsymbol{x})$.\\
+The implementation of logistic regression differs from the standard Pegasos because it uses the logistic loss as surrogate loss and not hinge.\\
+The logistic loss is defines ad follows: $$\ell(y, \hat{y}) = \log_2 (1+e^{-y\hat{y}}).$$\\
+So the gradient descent update becomes: $$\boldsymbol{w}_{t+1} = \boldsymbol{w}_t + \eta_t \sigma(-y_t \boldsymbol{w}^T \boldsymbol{x}_t) y_t \boldsymbol{x}_t$$\\
+I choose the regularization parameter in the same way and obtained the following result.\\
+\begin{center}
+    \begin{tabular}{| c | c | c |}
+        \hline
+        $\lambda$ & $S_{val}$ & $S_{train}$ \\
+        \hline
+        0.1 & 0.278 & 0.2718333 \\
+        \hline
+        \textbf{1} & \textbf{0.2735} & \textbf{0.274333} \\
+        \hline
+        10 & 0.28325 & 0.27816 \\
+        \hline
+        100 & 0.2805 & 0.278166 \\
+        \hline
+    \end{tabular}
+    \\
+    The values $S_{val}$ and $S_{train}$ while $\lambda$ changes for the logistic loss.\\
+\end{center}
+
+I have choosen the hyperparameter $\lambda = 1$ and obtained a test error of: 0.292.\\
+
 \subsection{Feature Expansion}
+I have also trained the two previous algorithm over the polynomial feature expansion of second degree of the whole dataset.\\
+Like in the case of perceptron, since we are able to express a separator in an high dimension we obtain better results than the native version (at the cost of an increasing number of feature in the dataset).\\  
 \subsubsection{Pegasos}
 \subsubsection{Logistic Regression}
 % Support Vector Machine (Pegasos)

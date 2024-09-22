@@ -65,6 +65,8 @@ I also trained the perceptron algorihtm on a second degree polynomial feature ex
 In this version of the algorithm is possible to express hyperplane in a high dimensional feature space, and this can also be interpreted as a polynomial curve (of second degree in this case) in the original space.\\
 For this reason the training and test error of the resulting predictor are significantly better than the previous version.\\
 Specifically I obtained a training error of 0.085375, and a test error of 0.087.\\
+This, of course, came at the cost of significantly increasing the number of features in the datasets and also the computational cost of operations between vectors (such as sums and dot products).\\
+As we will see later, we can avoid this cost by using kernels, which allow us to compute the dot product of the feature expansion of two vectors without explicitly computing their expansion.\\ 
 This are the features obtained:\\\\
 (1.87559817e+01  1.13401244e+00  7.68047788e+00 -1.32276315e+01\\
   1.73791816e+01 -5.35283741e+00  1.04738036e+01  6.65533633e+01\\
