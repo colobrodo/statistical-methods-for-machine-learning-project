@@ -42,24 +42,26 @@ class HyperparameterSearchResult:
 def grid_search(algorithm, training_points, training_labels, **hyperparameters) -> HyperparameterSearchResult:
     X_dev, X_val = split_dataset(training_points, 0.75)
     y_dev, y_val = split_dataset(training_labels, 0.75)
-    best_objective = inf
+    best_validation_error = inf
     best_configuration = None
-    # TODO: CLEANUP
     for parameter_values in product(*hyperparameters.values()):
         # NOTE: from python version 3.7 the dictionary are garanteed to preserve insersion order during iteration
         #       for this reason we can iterate this using zip
         hyperparameters_configuration = dict(zip(hyperparameters, parameter_values))
         predictor = algorithm(X_dev, y_dev, **hyperparameters_configuration)
-        objective = set_error(zero_one_loss, predictor, X_val, y_val)
-        logging.debug(f"{hyperparameters_configuration} -> {objective}")
-        if objective < best_objective:
-            best_objective = objective
+        training_error = set_error(zero_one_loss, predictor, X_dev, y_dev)
+        validation_error = set_error(zero_one_loss, predictor, X_val, y_val)
+        logging.debug(f"{hyperparameters_configuration}:")
+        logging.debug(f"\t{validation_error=}")
+        logging.debug(f"\t{training_error=}")
+        if validation_error < best_validation_error:
+            best_validation_error = validation_error
             best_configuration = hyperparameters_configuration
 
     logging.debug("terminated hyperparameter search\n")
     # we should retrain the algorithm on the whole training set 
     predictor = algorithm(training_points, training_labels, **best_configuration)
-    return HyperparameterSearchResult(best_configuration, predictor, best_objective)
+    return HyperparameterSearchResult(best_configuration, predictor, best_validation_error)
 
 def polynomial_feature_expansion(X: np.ndarray, n: int) -> np.ndarray:
     """Computes the polynomial feature expansion for the array `X` of degree `n`"""
@@ -119,7 +121,7 @@ def train_predictor(dataset: np.ndarray, args):
     elif args.algorithm == 'pegasos':
         logging.info('[Pegasos]')
         search_result = grid_search(pegasos, X_train, y_train, 
-                                    regularization_coefficent=[0.001, 0.01, 0.1, 1, 10, 100, 1000], 
+                                    regularization_coefficent=[0.0001, 0.001, 0.01, 0.1, 1, 10, 100], 
                                     rounds=(100_000,))
         logging.debug(f'best validation error: {search_result.objective}')
         logging.debug(f'best hyperparameters: {search_result.parameters}') 
@@ -230,7 +232,6 @@ def run_predictor(dataset: np.ndarray, args):
 
 def main():
     parser = argparse.ArgumentParser()
-    # TODO: add subcommands train and run
     parser.add_argument('-i', '--input', default='./datasets/dataset.csv', type=str, 
                         help="The path for the input dataset")
     parser.add_argument('-s', '--seed', default=31415, type=int,
