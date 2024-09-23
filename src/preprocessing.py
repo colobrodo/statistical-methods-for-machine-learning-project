@@ -33,13 +33,13 @@ def normalize(X_train: np.ndarray, X_test: np.ndarray):
     X_test_scaled = (X_test - min_) / (max_ - min_)
     return X_train_scaled, X_test_scaled
 
-class ScalingType(Enum):
+class ScalingMethod(Enum):
     STANDARDIZE = auto()
     NORMALIZE = auto()
     NONE = auto()
 
 
-def preprocessing(dataset: np.ndarray, scaling=ScalingType.STANDARDIZE, remove_outliers=False):
+def preprocessing(dataset: np.ndarray, scaling=ScalingMethod.STANDARDIZE, remove_outliers=False):
     dataset_size, _ = dataset.shape
     # REPORT: also say that I check for duplicates and don't find any of them
     if remove_outliers:
@@ -70,14 +70,14 @@ def preprocessing(dataset: np.ndarray, scaling=ScalingType.STANDARDIZE, remove_o
     # REPORT: NOTE: show the theoretical bound to justify why we use scaling or stadardization (X the radius on the bound for OGD on strongly convex funct)
     # try which one is the best and justify the choice, or maybe better try both and show which algorithm perform better
     # rescale the data to fit in a normal distribution
-    if scaling == ScalingType.STANDARDIZE:
+    if scaling == ScalingMethod.STANDARDIZE:
         logging.debug('preprocessing: feature rescaling standardization')
         X_train, X_test = standardize(X_train, X_test)
-    elif scaling == ScalingType.NORMALIZE:
+    elif scaling == ScalingMethod.NORMALIZE:
         logging.debug('preprocessing: feature rescaling with normalization')
         X_train, X_test = normalize(X_train, X_test)
     else:
-        assert scaling == ScalingType.NONE
+        assert scaling == ScalingMethod.NONE
         logging.debug('preprocessing: no feature rescaling')
     
     # preprocessing: feature augmentation

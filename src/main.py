@@ -16,7 +16,7 @@ from pegasos import (kernelized_pegasos, pegasos,
                      train_regularized_logistic_classification)
 from perceptron import train_kernelized_perceptron, train_perceptron
 from predictor import Predictor
-from preprocessing import preprocessing, split_dataset, ScalingType
+from preprocessing import preprocessing, split_dataset, ScalingMethod
 
 
 def zero_one_loss(labels: np.ndarray, predictions: np.ndarray) -> float:
@@ -102,9 +102,9 @@ def train_predictor(dataset: np.ndarray, args):
     """Train a predictor on the dataset based on the given arguments and 
     serialize the result to the output argument"""
     scaling = {
-        'standardize': ScalingType.STANDARDIZE,
-        'normalize': ScalingType.NORMALIZE,
-        'none': ScalingType.NONE,
+        'standardize': ScalingMethod.STANDARDIZE,
+        'normalize': ScalingMethod.NORMALIZE,
+        'none': ScalingMethod.NONE,
     }[args.preprocess]
     training_set, test_set = preprocessing(dataset, scaling, args.remove_outliers)
     X_train, y_train = training_set
