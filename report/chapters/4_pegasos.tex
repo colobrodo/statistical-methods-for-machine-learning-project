@@ -157,7 +157,57 @@ I have choosen the hyperparameter $\lambda = 1$ and obtained a test error of: 0.
 I have also trained the two previous algorithm over the polynomial feature expansion of second degree of the whole dataset.\\
 Like in the case of perceptron, since we are able to express a separator in an high dimension we obtain better results than the native version (at the cost of an increasing number of feature in the dataset).\\  
 \subsubsection{Pegasos}
+This are the following validation and development errors training the Pegasos algorithm the same set of values choosen for the hyperparameter $\lambda$ as in the naive version.\\
+
+\begin{center}
+    \begin{tabular}{| c | c | c |}
+        \hline
+        $\lambda$ & $S_{val}$ & $S_{train}$ \\
+        \hline
+        \textbf{0.001} & \textbf{0.045} & \textbf{0.039833} \\
+        \hline
+        0.01 & 0.06 & 0.050166 \\
+        \hline
+        0.1 & 0.0955 & 0.08833 \\
+        \hline
+        1 & 0.1725 & 0.1525 \\
+        \hline
+        10 & 0.219 & 0.211 \\
+        \hline
+        100 & 0.256 & 0.246 \\
+        \hline
+        1000 & 0.2635 & 0.25233 \\
+        \hline
+    \end{tabular}
+\end{center}
+
+The test error obtained training the predictor on the whole training set with the regularization coefficent of $0.001$ is $0.053$ with a training error of $0.044125$.\\
+
 \subsubsection{Logistic Regression}
+
+\begin{center}
+    \begin{tabular}{| c | c | c |}
+        \hline
+        $\lambda$ & $S_{val}$ & $S_{train}$ \\
+        \hline
+        \textbf{0.1} & \textbf{0.11} & \textbf{0.1035} \\
+        \hline
+        1 & 0.1675 & 0.15 \\
+        \hline
+        10 & 0.197 & 0.188 \\
+        \hline
+        100 & 0.2595 & 0.2485 \\
+        \hline
+        1000 & 0.2505 & 0.2385 \\
+        \hline
+    \end{tabular}
+\end{center}
+
+The test error obtained for the feature expanded logistic regression (with $\lambda = 0.001$) is $0.1125$ with a training error of $0.1055$.\\
+Note that not all of the parameters for $\lambda$ used in the previous case for the grid search are used in this case.\\ 
+This is because for values that are too small, I get an overflow error when exponentiating in the sigmoid function.\\ 
+These values, for which the gradient update calculation is not feasible, are simply discarded.\\
+
 % Support Vector Machine (Pegasos)
 %   - naive
 %       - Hyperparameter tuning
