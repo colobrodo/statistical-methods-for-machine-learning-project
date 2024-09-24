@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os.path
 import pickle
 from itertools import combinations_with_replacement, product
 from math import inf
@@ -16,7 +17,7 @@ from pegasos import (kernelized_pegasos, pegasos,
                      train_regularized_logistic_classification)
 from perceptron import train_kernelized_perceptron, train_perceptron
 from predictor import Predictor
-from preprocessing import preprocessing, split_dataset, ScalingMethod
+from preprocessing import ScalingMethod, preprocessing, split_dataset
 
 
 def zero_one_loss(labels: np.ndarray, predictions: np.ndarray) -> float:
@@ -183,6 +184,7 @@ def train_predictor(dataset: np.ndarray, args):
             logging.debug(f"training error for perceptron with polynomial feature expansion: {training_error}")
             test_error = set_error(zero_one_loss, perceptron, X_test, y_test)
             logging.info(f"test error for perceptron with polynomial feature expansion: {test_error}\n")
+            predictor = search_result.predictor
         elif args.algorithm == 'feature-expanded-pegasos':
             logging.info('[Feature Expanded Pegasos]')
             search_result = grid_search(pegasos, X_train, y_train,
@@ -195,6 +197,7 @@ def train_predictor(dataset: np.ndarray, args):
             logging.debug(f"training error for pegasos with cv and polynomial feature expansion: {training_error}")
             test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
             logging.info(f"test error for pegasos with cv and polynomial feature expansion: {test_error}\n")
+            predictor = search_result.predictor
         elif args.algorithm == 'feature-expanded-logistic-regression':
             logging.info('[Feature expanded Regularized Logistic Regression]')
             search_result = grid_search(train_regularized_logistic_classification, 
@@ -208,6 +211,7 @@ def train_predictor(dataset: np.ndarray, args):
             logging.debug(f"training error for cv logistic regression polynomial feature expansion: {training_error}")
             test_error = set_error(zero_one_loss, search_result.predictor, X_test, y_test)
             logging.info(f"test error for cv logistic regression with feature expansion: {test_error}\n")
+            predictor = search_result.predictor
         else:
             raise NotImplementedError(f'Not implemented algorithm {args.algorithm}')    
     
@@ -231,8 +235,10 @@ def run_predictor(dataset: np.ndarray, args):
 
 
 def main():
+    root_path = os.path.dirname(os.path.dirname(__file__))
+    default_dataset_path = os.path.join(root_path, "datasets", "dataset.csv")
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', default='./datasets/dataset.csv', type=str, 
+    parser.add_argument('-i', '--input', default=default_dataset_path, type=str, 
                         help="The path for the input dataset")
     parser.add_argument('-s', '--seed', default=31415, type=int,
                         help="The PRNG seed to allow reproducible results")
