@@ -1,2 +1,10 @@
 \newpage
 \section{Kernel}
+In the previous section I have showed the benefit of training the algorithm in an high-dimensional space.\\
+This came with the cost of increasing sensibily the number of the feature even in case of a simple polynomial feature expansion of degree 2.\\
+We can have the performance improvement obtained with feature expansion without increasing the dimensionality of the dataset using the kernel trick.\\
+Instead of computing the feature expansion map on evry point and then computing the dot product with the expanded linear predictor we can use a kernel $K$ that calculate the dot product of two expanded vector without explicitly calculate the expansion.\\
+Let the feature expansion be $\phi(x)$ a kernel $K$ for the feature expansion is defined as $$K(x, x') = \phi(\boldsymbol{x})^T \phi(\boldsymbol{x'})$$   for all $$\boldsymbol{x}, \boldsymbol{x'} \in R$$.\\
+The two kind of kernel used in the project are the \textbf{Polynomial kernel} and the \textbf{Gaussian kernel}.\\
+The polynomial kernel of degree $n$ is $$K_n(x, x') = (1 + \boldsymbol{x}^T \boldsymbol{x'})^n$$
+The gaussian kernel of parameter $\gamma$ is $$K_\gamma(x, x') = exp(-\frac{1}{2\gamma}||\boldsymbol{x} - \boldsymbol{x'}||^2)$$
