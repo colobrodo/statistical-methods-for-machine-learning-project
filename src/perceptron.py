@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import numpy as np
-from predictor import Predictor, LinearPredictor
+
 from kernel import Kernel
+from predictor import KernelizedLinearPredictor, LinearPredictor
+
 
 # TODO: DOC
 class Perceptron(LinearPredictor):
@@ -18,24 +20,6 @@ class Perceptron(LinearPredictor):
     def zero(dimension: int) -> 'Perceptron':
         """Return a new linear predictor initialized completly at zero"""
         return __class__(np.zeros(dimension))
-
-
-# TODO: DOC
-class KernelizedPerceptron(Predictor):
-    def __init__(self, kernel: Kernel, training_points: np.ndarray, training_labels: np.ndarray):
-        training_size, _ = training_points.shape
-        self.kernel = kernel
-        self.training_points = training_points
-        self.training_labels = training_labels
-        self.alpha = np.zeros(training_size)
-    
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        k = self.kernel(self.training_points, X)
-        d = np.dot(np.multiply(self.alpha, self.training_labels), k)
-        return np.sign(d)
-
-    def update(self, i):
-        self.alpha[i] += 1
 
 
 def train_perceptron(training_points: np.ndarray, training_labels: np.ndarray, max_epochs=10) -> Perceptron:
@@ -60,7 +44,7 @@ def train_kernelized_perceptron(training_points: np.ndarray, training_labels: np
     """Given a training set trains and returns a perceptron on the RKHS induced by the passed `kernel`.
     The algorithm terminates after `max_epochs` epochs or when it converges.
     """
-    perceptron = KernelizedPerceptron(kernel, training_points, training_labels)
+    perceptron = KernelizedLinearPredictor(kernel, training_points, training_labels)
     for _ in range(max_epochs):
         update = False
         for t, z_t in enumerate(zip(training_points, training_labels)):

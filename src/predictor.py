@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-
 from abc import ABC, abstractmethod
 import numpy as np
+
+from kernel import Kernel
+
 
 class Predictor(ABC):
     @abstractmethod
@@ -25,3 +27,20 @@ class LinearPredictor(Predictor):
         predictor, returns an array of m elements either -1 or 1 based on the
         sign of the dot product with the feature vector."""
         return np.sign(np.dot(X, self.features))
+
+
+class KernelizedLinearPredictor(LinearPredictor):
+    def __init__(self, kernel: Kernel, training_points: np.ndarray, training_labels: np.ndarray):
+        training_size, _ = training_points.shape
+        self.kernel = kernel
+        self.training_points = training_points
+        self.training_labels = training_labels
+        self.alpha = np.zeros(training_size)
+    
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        k = self.kernel(self.training_points, X)
+        d = np.dot(np.multiply(self.alpha, self.training_labels), k)
+        return np.sign(d)
+
+    def update(self, i):
+        self.alpha[i] += 1

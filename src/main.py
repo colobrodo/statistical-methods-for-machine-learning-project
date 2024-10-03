@@ -12,7 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from kernel import GaussianKernel, PolynomialKernel, polynomial_feature_expansion
+from kernel import (GaussianKernel, PolynomialKernel,
+                    polynomial_feature_expansion)
 from pegasos import (kernelized_pegasos, pegasos,
                      train_regularized_logistic_classification)
 from perceptron import train_kernelized_perceptron, train_perceptron

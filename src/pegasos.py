@@ -6,7 +6,7 @@ from math import exp
 import numpy as np
 
 from kernel import Kernel
-from predictor import LinearPredictor, Predictor
+from predictor import KernelizedLinearPredictor, LinearPredictor, Predictor
 
 
 # TODO: doc string
@@ -42,7 +42,7 @@ def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regulariza
 # TODO(*): the typing lies: we say we return predictor but in reality we still returrning a closure fix it
 def kernelized_pegasos(training_points: np.ndarray, training_labels: np.ndarray, kernel: Kernel, regularization_coefficent=0.1, rounds=1000) -> Predictor:
     samples, _ = training_points.shape
-    alpha = np.zeros(samples)
+    predictor = KernelizedLinearPredictor(kernel, training_points, training_labels)
     # NOTE: t the index of current round are 1-based in the for loop to avoid division by zero
     for t in range(1, rounds + 1):
         random_index = random.randint(0, samples - 1)
@@ -51,14 +51,10 @@ def kernelized_pegasos(training_points: np.ndarray, training_labels: np.ndarray,
         y_it = training_labels[random_index]
         learning_rate = 1 / (regularization_coefficent * t)
         # TODO: should we exclude somehow the alpha for the current index? 
-        if y_it * learning_rate * np.dot(np.multiply(alpha, training_labels), kernel(training_points, x_it)) < 1:
-            alpha[random_index] += 1
+        if y_it * learning_rate * np.dot(np.multiply(predictor.alpha, training_labels), kernel(training_points, x_it)) < 1:
+            predictor.update(random_index)
     # TODO(*): we should generalize the predictor into a protocol or something like that and create subclass for linear and the two kernel algorithm
-    def predict(X: np.ndarray) -> np.ndarray:
-        k = kernel(training_points, X)
-        d = np.dot(np.multiply(alpha, training_labels), k)
-        return np.sign(d)
-    return predict
+    return predictor
 
 def sigmoid(z: float) -> float:
     """Computes the sigmoid function over a scalar `z`"""
