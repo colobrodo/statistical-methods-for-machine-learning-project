@@ -39,6 +39,7 @@ def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regulariza
     #       Although the authors report that this approach gives better results than uniform sampling as I did, I haven't experiment this variant of the algorithm
     return LinearPredictor(w)
 
+# TODO(*): the typing lies: we say we return predictor but in reality we still returrning a closure fix it
 def kernelized_pegasos(training_points: np.ndarray, training_labels: np.ndarray, kernel: Kernel, regularization_coefficent=0.1, rounds=1000) -> Predictor:
     samples, _ = training_points.shape
     alpha = np.zeros(samples)
@@ -52,7 +53,7 @@ def kernelized_pegasos(training_points: np.ndarray, training_labels: np.ndarray,
         # TODO: should we exclude somehow the alpha for the current index? 
         if y_it * learning_rate * np.dot(np.multiply(alpha, training_labels), kernel(training_points, x_it)) < 1:
             alpha[random_index] += 1
-    # TODO: we should generalize the predictor into a protocol or something like that and create subclass for linear and the two kernel algorithm
+    # TODO(*): we should generalize the predictor into a protocol or something like that and create subclass for linear and the two kernel algorithm
     def predict(X: np.ndarray) -> np.ndarray:
         k = kernel(training_points, X)
         d = np.dot(np.multiply(alpha, training_labels), k)
@@ -63,6 +64,7 @@ def sigmoid(z: float) -> float:
     """Computes the sigmoid function over a scalar `z`"""
     return 1 / (1 + exp(-z))
 
+# TODO: DOC
 def train_regularized_logistic_classification(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> LinearPredictor:
     samples, features = training_points.shape
     w = np.zeros(features)

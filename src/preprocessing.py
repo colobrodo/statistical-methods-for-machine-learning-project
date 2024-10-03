@@ -39,6 +39,7 @@ class ScalingMethod(Enum):
     NONE = auto()
 
 
+# TODO: DOC
 def preprocessing(dataset: np.ndarray, scaling=ScalingMethod.STANDARDIZE, remove_outliers=False):
     dataset_size, _ = dataset.shape
     # REPORT: also say that I check for duplicates and don't find any of them

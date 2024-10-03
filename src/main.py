@@ -4,7 +4,7 @@ import argparse
 import logging
 import os.path
 import pickle
-from itertools import combinations_with_replacement, product
+from itertools import product
 from math import inf
 from typing import Any
 
@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from kernel import GaussianKernel, PolynomialKernel
+from kernel import GaussianKernel, PolynomialKernel, polynomial_feature_expansion
 from pegasos import (kernelized_pegasos, pegasos,
                      train_regularized_logistic_classification)
 from perceptron import train_kernelized_perceptron, train_perceptron
@@ -63,21 +63,6 @@ def grid_search(algorithm, training_points, training_labels, **hyperparameters) 
     # we should retrain the algorithm on the whole training set 
     predictor = algorithm(training_points, training_labels, **best_configuration)
     return HyperparameterSearchResult(best_configuration, predictor, best_validation_error)
-
-def polynomial_feature_expansion(X: np.ndarray, n: int) -> np.ndarray:
-    """Computes the polynomial feature expansion for the array `X` of degree `n`"""
-    samples, features = X.shape
-    # Generate combinations of feature indices up to the given degree
-    combinations = []
-    for d in range(1, n + 1):
-        combinations.extend(combinations_with_replacement(range(features), d))
-    # TODO:
-    # Create a list to hold the new features
-    poly_features = np.empty((samples, len(combinations)), dtype=X.dtype)
-    # Generate the new features
-    for i, comb in enumerate(combinations):
-        poly_features[:, i] = np.prod(X[:, comb], axis=1)
-    return poly_features
 
 def load_dataset(path: str) -> np.ndarray:
     """Load the csv dataset located at `path` in a randomized order"""
@@ -223,7 +208,12 @@ def run_predictor(dataset: np.ndarray, args):
     When you run this command you should be aware that you should provide 
     the same seed and the same preprocessing options that you give when you 
     have trained the predictor to have consistent results"""
-    training_set, test_set = preprocessing(dataset, args)
+    scaling = {
+        'standardize': ScalingMethod.STANDARDIZE,
+        'normalize': ScalingMethod.NORMALIZE,
+        'none': ScalingMethod.NONE,
+    }[args.preprocess]
+    training_set, test_set = preprocessing(dataset, scaling, args.remove_outliers)
     X_train, y_train = training_set
     X_test, y_test = test_set
     with open(args.predictor, 'rb') as f:
@@ -241,14 +231,18 @@ def main():
     parser.add_argument('-i', '--input', default=default_dataset_path, type=str, 
                         help="The path for the input dataset")
     parser.add_argument('-s', '--seed', default=31415, type=int,
-                        help="The PRNG seed to allow reproducible results")
+                        help="The PRNG seed to allow reproducible results (the dataset is shuffled during preprocessing)")
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('--remove-outliers', action='store_true',
                         help="If specified remove all the outliers from the "
                         "dataset using the Z-score method")
     parser.add_argument('--preprocess', 
                         choices=('normalize', 'standardize', 'none'),
-                        default='standardize')
+                        default='standardize',
+                        help="Choose which scaling tecnique adopt: 'normalize', "
+                        "standardization ('standardize') or 'none' to not scale the dataset. "
+                        "The whole dataset is scaled but parameter for the scaling technique"
+                        " is choosen only on the training part to avoid data leakeage")
     
     subparsers = parser.add_subparsers(required=True)
     available_algorithms = [
@@ -262,15 +256,20 @@ def main():
         'kernelized-perceptron',
         ]
     # define option parameters to train the algorithms
-    # TODO: add help for this subcommand
-    parser_train = subparsers.add_parser('train')
+    parser_train = subparsers.add_parser('train', help="Train a predictor and save it to the output "
+                                         "path. \nThe algorithm used to train the predictor should "
+                                         "be specified in the 'algorithm' parameter."
+                                         "The resulting predictor is serialized using pickle.")
     parser_train.add_argument('algorithm', type=str, 
                             choices=available_algorithms)
     parser_train.add_argument('output', type=str)
     parser_train.set_defaults(func=train_predictor)
 
-    # TODO: add help for this subcommand
-    parser_run = subparsers.add_parser('run')
+    parser_run = subparsers.add_parser('run', help="Given a serialized predictor run it on the "
+                                       "preprocessed dataset and print his training and test error."
+                                       " Note: to have consistent result the preprocessing "
+                                       "parameter of this command should be the same as the ones "
+                                       "used to train the predictor")
     parser_run.add_argument('predictor', type=str)
     parser_run.set_defaults(func=run_predictor)
 

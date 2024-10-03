@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from itertools import combinations_with_replacement
+
 from typing import Protocol
 import numpy as np
 
@@ -35,6 +37,22 @@ class PolynomialKernel(Kernel):
     def __repr__(self):
         return f"PolynomialKernel(degree={self.degree})"
 
+
+# TODO: DOC
+def polynomial_feature_expansion(X: np.ndarray, n: int) -> np.ndarray:
+    """Computes the polynomial feature expansion for the array `X` of degree `n`"""
+    samples, features = X.shape
+    # Generate combinations of feature indices up to the given degree
+    combinations = []
+    for d in range(1, n + 1):
+        combinations.extend(combinations_with_replacement(range(features), d))
+    # TODO:
+    # Create a list to hold the new features
+    poly_features = np.empty((samples, len(combinations)), dtype=X.dtype)
+    # Generate the new features
+    for i, comb in enumerate(combinations):
+        poly_features[:, i] = np.prod(X[:, comb], axis=1)
+    return poly_features
 
 class GaussianKernel(Kernel):
     def __init__(self, gamma: float):
