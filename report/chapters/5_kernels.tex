@@ -23,15 +23,125 @@ This means that if $\gamma$ is too small, we are likely to have a small training
 \subsection{Implementation details}
 I used two classes with the '\_\_call\_\_' python magic method to implement the kernels functions.\\
 Both takes two parameter $X$ and $X2$.\\
-They can take two vectors and the kernel behave as mathematicly defined or the parameter can be 2 matrices of size $m x d$ and $n x d$.\\
-In the second case a new matrix $\boldsymbol{K}$ ($m x n$) defined as $\boldsymbol{K}_{i, j} = K(X_i, X2_j)$.\\
+They can take two vectors and the kernel behave as mathematicly defined or the parameter can be 2 matrices of size $m$ x $d$ and $n$ x $d$.\\
+In the second case a new matrix $\boldsymbol{K}$ ($m$ x $n$) defined as $\boldsymbol{K}_{i, j} = K(X_i, X2_j)$.\\
 This is particular useful to avoid python for loops and delegate the computations to the optimize implementation of the numpy primitives.\\
 
 % add the two implementations with code
 
 \subsection{Kernelized Perceptron}
-% pseudocode
+
+% TODO: pseudocode
+% \begin{algorithm}[H]
+%     \SetAlgoLined
+%     \DontPrintSemicolon
+%     \caption{Pegasos Algorithm}
+%     \KwIn{$S$, $\lambda$, $T$}
+%     \For{$t = 1, 2, \dots, T$}{
+%         Choose $i_t$ uniformly at random.\\
+%         Set $\eta_t = \frac{1}{\lambda t}$\\
+%         \If{$y_{it} \boldsymbol{w}_t^T x_{i_{t}} < 1$}{
+%             Set $\boldsymbol{w}_{t+1} \leftarrow (1 - \eta_t \lambda)\boldsymbol{w}_t + \eta_t y_{it} \boldsymbol{x}_{i_{t}}$
+%             }
+%             \Else {
+%                 Set $\boldsymbol{w}_{t+1} \leftarrow (1 - \eta_t \lambda)\boldsymbol{w}_t$
+%         }
+%     }    
+%     Output $\boldsymbol{w}_{T+1}$
+% \end{algorithm}
+
+
 % results
+
+% consideration about overfitting and underfitting
+
 \subsection{Kernelized Pegasos}
-% pseudocode
+
+\begin{algorithm}[H]
+    \SetAlgoLined
+    \DontPrintSemicolon
+    \caption{Pegasos Algorithm}
+    I implement the kernelized version of the Pegasos algorithm following the pseudocode from the paper, reported here:
+    \KwIn{$S$, $\lambda$, $T$}
+    Initialize: Set $\boldsymbol{\alpha}_1 = 0$\\
+    \For{$t = 1, 2, \dots, T$}{
+        Choose $i_t \in {0, \dots, |S|}$ uniformly at random.\\
+        
+        For all $j \neq i_t$, set $\boldsymbol{\alpha}_{t+1}[j] = \boldsymbol{\alpha}_t[j] $\\
+        \If{$y_{i_{t}} \frac{1}{\lambda t} \sum_{j}{\boldsymbol{\alpha}_t[j] y_{i_t} K(\boldsymbol{x}_{i_t}, x_j)} < 1$}{
+            Set $\boldsymbol{\alpha}_{t+1}[i_t] = \boldsymbol{\alpha}_t[i_t] + 1$
+        } 
+        \Else {
+            Set $\boldsymbol{\alpha}_{t+1}[i_t] = \boldsymbol{\alpha}_t[i_t]$
+        }
+
+    }
+    Output $\boldsymbol{\alpha}_{T+1}$\\
+\end{algorithm}
+
 % results
+As in the previous algorithm, I fixed a number of rounds $T = 100000$ and tuned the algorithm over the hyperparameters $\lambda$ (the regularization coefficient) and a kernel that can be either polynomial of degree $1,2,3$ or $4$, or gaussian with a $\gamma$ parameter of one between ${0.01, 0.1, 1, 10}$.\\
+\begin{table}[]
+    \begin{tabular}{|l|l|l|l|l|}
+    \hline
+    $\lambda$ & Polynomial Kernel n & Gaussian Kernel $\gamma$ & $S_{val}$ & $S_{train}$ \\ \hline
+    0.001 & 1 &  & 0.275 & 0.2738333333333333 \\ \hline
+    0.001 & 2 &  & 0.0605 & 0.055 \\ \hline
+    0.001 & 3 &  & 0.053 & 0.045 \\ \hline
+    0.001 & 4 &  & 0.057 & 0.026166666666666668 \\ \hline
+    0.001 & & 0.01 & 0.1675 & 0.0 \\ \hline
+    0.001 & & 0.1 & 0.1465 & 0.0 \\ \hline
+    0.001 & & 1 & 0.114 & 0.06633333333333333 \\ \hline
+    0.001 & & 10 & 0.157 & 0.13683333333333333 \\ \hline
+    0.01 & 1 &  & 0.2755 & 0.26916666666666667 \\ \hline
+    0.01 & 2 &  & 0.055 & 0.04833333333333333 \\ \hline
+    0.01 & 3 &  & 0.049 & 0.03716666666666667 \\ \hline
+    0.01 & 4 &  & 0.051 & 0.025 \\ \hline
+    0.01 & & 0.01 & 0.167 & 0.0 \\ \hline
+    0.01 & & 0.1 & 0.15 & 0.0 \\ \hline
+    0.01 & & 1 & 0.2275 & 0.21266666666666667 \\ \hline
+    0.01 & & 10 & 0.2495 & 0.246 \\ \hline
+    0.1 & 1 &  & 0.2645 & 0.26316666666666666 \\ \hline
+    0.1 & 2 &  & 0.084 & 0.07616666666666666 \\ \hline
+    \textbf{0.1} & \textbf{3} &  & \textbf{0.044} & \textbf{0.043} \\ \hline
+    0.1 & 4 &  & 0.05 & 0.023166666666666665 \\ \hline
+    0.1 & & 0.01 & 0.166 & 0.0 \\ \hline
+    0.1 & & 0.1 & 0.1465 & 0.0 \\ \hline
+    0.1 & & 1 & 0.2385 & 0.2255 \\ \hline
+    0.1 & & 10 & 0.2545 & 0.257 \\ \hline
+    1 & 1 & & 0.2725 & 0.2668333333333333 \\ \hline
+    1 & 2 & & 0.144 & 0.131 \\ \hline
+    1 & 3 & & 0.0825 & 0.072 \\ \hline
+    1 & 4 & & 0.0535 & 0.029 \\ \hline
+    1 & & 0.01 & 0.167 & 0.0 \\ \hline
+    1 & & 0.1 & 0.1445 & 0.0 \\ \hline
+    1 & & 1 & 0.2415 & 0.2245 \\ \hline
+    1 & & 10 & 0.26 & 0.25883333333333336 \\ \hline
+    10 & 1 & & 0.285 & 0.2796666666666667 \\ \hline
+    10 & 2 & & 0.193 & 0.17766666666666667 \\ \hline
+    10 & 3 & & 0.143 & 0.13383333333333333 \\ \hline
+    10 & 4 & & 0.0705 & 0.05433333333333333 \\ \hline
+    10 & & 0.01 & 0.1675 & 0.0 \\ \hline
+    10 & & 0.1 & 0.1445 & 0.0 \\ \hline
+    10 & & 1 & 0.2365 & 0.225 \\ \hline
+    10 & & 10 & 0.274 & 0.265 \\ \hline
+    100 & 1 & & 0.2805 & 0.27616666666666667 \\ \hline
+    100 & 2 & & 0.2015 & 0.19333333333333333 \\ \hline
+    100 & 3 & & 0.2185 & 0.21433333333333332 \\ \hline
+    100 & 4 & & 0.111 & 0.10033333333333333 \\ \hline
+    100 & & 0.01 & 0.169 & 0.0 \\ \hline
+    100 & & 0.1 & 0.144 & 0.0 \\ \hline
+    100 & & 1 & 0.2405 & 0.223 \\ \hline
+    100 & & 10 & 0.2845 & 0.2813333333333333 \\ \hline
+\end{tabular}
+\label{tab:kpeg}
+\end{table}
+
+% 
+The best hyperparameters obtained by the grid search procedure are a regularization coefficient $\lambda = 0.1$ and a polynomial kernel of degree 3.\\
+We obtain a training error on the whole data set of 0.035875 and a test error of 0.046.\\
+We can see from the test error that this is the best performing method implemented.\\
+This is also because we are using a 3rd degree polynomial kernel and we are training a linear predictor in a higher dimensional space than the one I obtained with the 2nd degree polynomial expansion.\\
+In the table \ref{tab:kpeg} we can also see for which values of $\lambda$ and kernel degree the predictor overfits, fixing the other hyperparameter.\\
+Fixing the regularisation coefficient $\lambda = 0.1$ we can experimentally confirm that for high degrees of the kernel (4) the predictor overfits and has a high validation error and for smaller values (1 or 2) it underfits.\\
+Conversely, by fixing the chosen kernel and varying $\lambda$, we can see that $S_{val}$ is slightly higher for values of the regularisation coefficient $< 0.1$ and we are probably overfitting, while for higher values the validation error is much higher and this can signal underfitting.\\
