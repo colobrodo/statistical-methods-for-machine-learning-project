@@ -31,6 +31,9 @@ This is particular useful to avoid python for loops and delegate the computation
 
 \subsection{Kernelized Perceptron}
 
+The first algorithm I implement using the kernel trick is the perceptron.\\
+following I provide a pseudocode taken from the lecture notes about this algorihtm.\\ 
+
 % TODO: pseudocode
 % \begin{algorithm}[H]
 %     \SetAlgoLined
@@ -50,11 +53,33 @@ This is particular useful to avoid python for loops and delegate the computation
 %     Output $\boldsymbol{w}_{T+1}$
 % \end{algorithm}
 
+% Difference between implementation and pseudocode
+With the kernel version we have a new hyperparameter: The type of kernel used with its parameter (the degree for polynomials and the $\gamma$ for Gaussians).\\
+We choose the best hyperparameter, as described in the previous chapters.\\
+Among the possible values, we choose 1, 2, 3, 4 for the possible degrees of the polynomial kernel, and 0.01, 0.1, 1 and 10 for the possible values of $\gamma$.\\
 
 % results
-
-% consideration about overfitting and underfitting
-
+\begin{table}[]
+    \begin{tabular}{|c|c|c|c|}
+        \hline
+        Polynomial Kernel n & Gaussian Kernel $\gamma$ & $S_{val}$ & $S_{train}$ \\ \hline
+        1 & & 0.339 & 0.3251666 \\ \hline
+    2 & & 0.0685 & 0.06633 \\ \hline
+    3 & & 0.0585 & 0.048 \\ \hline
+    4 & & 0.06 & 0.031666 \\ \hline
+    & 0.01 & 0.2075 & 0.0 \\ \hline
+    & 0.1 & 0.1805 & 0.0 \\ \hline
+    & 1  & 0.0685 & 0.0015 \\ \hline
+     & 10 & 0.072 & 0.01366 \\ \hline    
+    \end{tabular}
+    \label{tab:kper}
+\end{table}
+We can make some considerations about the data in the table \ref{tab:kper} explained in the previous theoretical section of this chapter:
+% TODO: better rewrite
+We can see that when using the Gaussian kernel, we have a training error $S_{train} = 0$ for the smaller value of $\gamma$, 
+This can be explained by observing that if the radius of the Gaussians is too small, the Gaussians over the training points do not interact and for each training point the algorithm behaves as a K-NN with $K = 1$ and for the same reason the training error is 0.\\
+It's also possible to know in which cases for the polynomial kernel we overfit, observe that in the case of $n = 4$ we have a value $S_{val}$ greater than $S_{train}$.\\
+In contrast, for $n < 3$ we also have a high $S_{val}$, indicating underfitting.\\
 \subsection{Kernelized Pegasos}
 
 \begin{algorithm}[H]
@@ -139,7 +164,7 @@ As in the previous algorithm, I fixed a number of rounds $T = 100000$ and tuned 
 
 % 
 The best hyperparameters obtained by the grid search procedure are a regularization coefficient $\lambda = 0.1$ and a polynomial kernel of degree 3.\\
-We obtain a training error on the whole data set of 0.035875 and a test error of 0.046.\\
+We obtain a training error on the whole data set of 0.035875 and a test error of 0.043.\\
 We can see from the test error that this is the best performing method implemented.\\
 This is also because we are using a 3rd degree polynomial kernel and we are training a linear predictor in a higher dimensional space than the one I obtained with the 2nd degree polynomial expansion.\\
 In the table \ref{tab:kpeg} we can also see for which values of $\lambda$ and kernel degree the predictor overfits, fixing the other hyperparameter.\\
