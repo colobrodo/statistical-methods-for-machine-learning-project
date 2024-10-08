@@ -4,8 +4,8 @@
 The provided dataset contains 10000 points with 10 features named from $x1$ to $x10$ and a label column named $y$.\\
 All the feature are floating point values and the dataset is well formed (in the sense that there are no missing values).\\
 The label column contains values that are either $-1$ or $+1$.\\
-There isn't duplicated data in the training set.\\
-I collect the major statistics from each feature in the dataset: mean, standard deviation, min and max
+There isn't any duplicated data in the training set.\\
+I collect the major statistics from each feature in the dataset: \textit{mean}, \textit{standard deviation}, \textit{min} and \textit{max}.\\
 
 \begin{center}
     \begin{tabular}{| c | c | c | c | c | c |}
@@ -39,27 +39,44 @@ I collect the major statistics from each feature in the dataset: mean, standard 
     \end{tabular}
 \end{center}
 
-It's clear that the different features are not normalized and follow different probability distributions.
+It's clear from the main features that the different features have different ranges and follow different probability distributions.
 
 \subsection{Feature Scaling}
-Because the dataset is already well formed and there are no missing values The first thing I do is scale the features.\\
+Because the dataset is already well formed and there are no missing values the first thing I do is scale the features.\\
 This step should ensure that the values of the features are in a comparable range.\\
 I tried two approaches: normalization and standardisation.\\
-{\bf Scaling} sets each feature to have a mean of 0 and a standard deviation of 1.
+\textbf{Standardization} sets each feature to have a mean of 0 and a standard deviation of 1.\\
 This is achieved by subtracting the feature mean from each value and dividing by its standard deviation:
 $$x' = \frac{x - \mu}{\sigma} $$
 (where $\mu$ is the mean and $\sigma$ is the standard deviation).\\
-In the case of {\bf normalization}, the features are rescaled in a fixed range between 0 and 1 in the following way: $$x' = \frac{x - x_{min}}{x_{max} - x_{min}} $$.\\
+In the case of \textbf{normalization}, the features are rescaled in a fixed range between 0 and 1 in the following way: $$x' = \frac{x - x_{min}}{x_{max} - x_{min}} $$.\\
 It's important to note that we should perform both approaches using a sound procedure, more specifically, we should avoid data leakage:
 When calculating the minimum and maximum of the feature, we should only consider the training set and scale the test set only according to these values, without deriving any information from it.\\
-In the same way, we should calculate the mean and standard deviation for the standardisation process.\\
-Both of these approaches lead to important improvements and can be demonstrated both from an empirical point of view (see table TODO) and from a theoretical perspective.
+In the same way, we should calculate the mean and standard deviation for the standardization process.\\
+Both of these approaches lead to important improvements and can be demonstrated both from an empirical point of view (see table \ref{tab:scaling}) and from a theoretical perspective (explained in the chapter describing perceptron).
+It's also worth noting that I couldn't run the logistic regression without first rescaling the data, due to a float overflow in the exponentiation for the sigmoid function.\\
 
-%TODO: advantage from the theorical prospective
+\begin{center}
+    \begin{tabular}{| c | c | c | c |}
+    \hline
+    & None & Normalization & Standardization  \\
+    \hline
+    Perceptron & 0.507 & 0.482 & 0.326  \\
+    \hline
+    Pegasos & 0.294 &  0.2805 & 2807 \\
+    \hline
+    \end{tabular}\\
+    \label{tab:scaling}
+    Comparison of test errors between Perceptron and Pegasos with the three different scaling options.\\
+\end{center}
+
+Is possible to choose which scaling method use with the cli option \textit{\-\-preprocess} and choose between\textit{none}, \textit{normalize} and \textit{standardize}.\\
+I used the standardization methods by default because is the one that perform better in the majority of the cases.\\
+
 
 
 \subsection{Outliers removal}
-Another approach I tried is removing the outliers from the dataset using the Z-score methods.\\
+Another approach I considered is removing the outliers from the dataset using the Z-score methods.\\
 I calculated the score $ Z = (x - \mu) / \sigma$ for each value where $\mu$ is the mean and $\sigma$ is the variance of the feature.\\
 I then removed all the points with a Z-score greater or equals than $3$ in absolute value.\\
 I found (and removed) 265 outliers (recall that the dataset has size 10000).\\
@@ -80,29 +97,31 @@ affects the performance of the models in a minimum way with no significative cha
     Feature expanded Pegasos & 0.0555 & 0.0565  \\
     \hline
     \end{tabular}\\
-    Comparison of test error (using zero one loss) with and without outliers.\\
+    Comparison of test errors (using zero one loss) with and without outliers.\\
     Note that when I refere to feature expansion I intend polynomial feature expansion of degree 2.\\
 \end{center}
 
+Is possible to enable the outliers removal using the cli flag \textit{\-\-remove-outliers}.\\
+
 \subsection{Feature correlation}
-I sorted all the point according to each axis and plot on the other axis all the other features to spot eventual correlation and I observed that the feature $2$ and $5$ have a linear correlation (with a negative coefficent, see Fig. \ref{fig:corr25}) as the feature 5 and 9 (with positive coefficent, see Fig. \ref{fig:corr59}).\\ 
+I sorted all the point according to each axis and plot on the other axis all the other features to spot eventual correlation and I observed that the feature \textit{x2} and \textit{x5} have a linear correlation (with a negative coefficent, see Fig. \ref{fig:corr25}) as the feature \textit{5} and \textit{9} (with positive coefficent, see Fig. \ref{fig:corr59}).\\ 
 
 \begin{figure}[h]
     \includegraphics[width=\textwidth]{images/feature_2_5_correlation.png}
-    \caption{Here there is a clear linear correlation between feature 2 and 5, but very noisy}
+    \caption{Here there is a clear linear correlation between feature \textit{x2} and \textit{x5}, but very noisy}
     \label{fig:corr25}
 \end{figure}
 
 \begin{figure}[h]
     \includegraphics[width=\textwidth]{images/feature_5_9_correlation.png}
-    \caption{Another correlation is also present between feature 5 and 9 (with a negative coefficent)}
+    \caption{Another correlation is also present between feature \textit{x5} and \textit{x9} (with a negative coefficent)}
     \label{fig:corr59}
 \end{figure}
 
 One possibility in this case during the preprocessing of the data is to remove the correlated features and leave only one of them to avoid redundancy of the data.\\
-I don't follow this approach because there is a sensibile noise in the correlation and removing some features can lead to also removing this noise that can encode important information on the model.\\
+I don't follow this approach because there is a sensibile noise in the correlation and removing some features can lead to also removing this noise that can encode important information for the model.\\
 
 
 \subsection{Feature expansion}
-To being able to express non-homogeneous linear separators (hyperplane that don't pass through the origin) we add a constant feature of value $1$ to each point in the dataset.\\
+To being able to express non-homogeneous linear separators (hyperplane that don't pass through the origin) I add a constant feature of value $1$ to each point in the dataset.\\
 Let $\bf(x)$ be any point in the dataset and $\bf(w)$ be the linear separator, if we define $x' = ({\bf x}, 1)$ we can define $w' = ({\bf} w, c)$, in that way: $${w'}^T x' = ({\bf w}^T {\bf x} + c)$$\\

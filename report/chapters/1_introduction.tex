@@ -1,12 +1,12 @@
 \newpage
 \section{introduction}
 \subsection{Project Description}
-The goal of this project is to train different learning algorithms to solve the binary classification problem.\\
-Specifically, we need to predict the value of the label in the $y$ column based on the numerical features $x1$ through $x10$.\\
+The aim of this project is to implement and use different learning algorithms to train linear predictors that solve the binary classification problem.\\
+Specifically for our case with the given dataset, we need to predict the value of the label in column $y$ based on the numerical features $x1$ through $x10$.\\
 As mentioned in the description of the project, I used the zero-one loss as a metric to evaluate the performance of the algorithms.\\
-In the following chapter I describe how I analyzed and preprocessed the dataset to improve the performance of the modules.\\
+In the following chapter I describe how I analysed and pre-processed the data set to improve the performance of the modules.\\
 In the following chapters I describe how I implemented each algorithm and how I chose the hyperparameters for them.\\
-I have also analyzed how varying the hyperparameter affects the training and testing error and explained these empirical results with the theoretical background provided by the lectures.\\
+I have also analysed how varying the hyperparameters affects the validation and training errors, and explained these empirical results with the theoretical background provided in the lectures.\\
 
 I implemented the following algorithms:
 \begin{itemize}
@@ -24,27 +24,37 @@ I implemented the following algorithms:
 The project is divided into the following folders:
 \begin{itemize}
 \item datasets: contains the provided dataset
-\item models: a set of pre-trained models, created using the train subcommand
+\item models: a set of pre-trained models, created using the train subcommand and serialized with pickle python module
 \item src: the source code of the project, the entry point is main.py and can be used both to train the models from the dataset and to run them
 \item report: this folder contains the source for this report
 \end{itemize}
 
 \subsection{Usage}
-The entry point to the project is the {\bf main.py} file. It can be called with the command line argument and provides two subcommands 'train' and 'run'
-The first subcommand requires the name of the algorithm to be trained and stores a predictor in the path provided in the output argument, serialized using the Python pickle module.
-
+The entry point to the project is the file \textbf{main.py}.\\ It can be called with the command line argument and provides two subcommands, \textit{train} and \textit{run}.\\
+The first subcommand requires the name of the algorithm to be trained and stores a predictor in the path provided in the output argument, serialised using the Python pickle module.
+Example:
 \begin{lstlisting}[language=bash]
-  $ python src/main.py train pegasos models/pegasos.pkl
+  $ python src/main.py train perceptron models/perceptron.pkl
 \end{lstlisting}
 
-% TODO: output example
-
-The run subcommand takes a serialized model and then prints its training and test errors
-
-\begin{lstlisting}[language=bash]
-  $ python src/main.py run models/pegasos.pkl
+Results in the following output:
+\begin{lstlisting}[]
+[Perceptron]
+trained perceptron: [ 0.55604295  1.97486085 -2.58700382 -1.74490783  1.91766823 -3.89876104
+ -0.02419966  3.06371997  0.21648717 -0.79054099  1.        ]
+test error for perceptron: 0.326
 \end{lstlisting}
 
-% TODO: output example
+The \textit{run} subcommand takes a serialized model and then prints its training and test errors
+
+\begin{lstlisting}[language=bash]
+  $ python src/main.py run models/perceptron.pkl
+\end{lstlisting}
+
+With the following output:
+\begin{lstlisting}[]
+  training error for predictor saved at 'models/perceptron.pkl': 0.322625
+  test error for predictor saved at 'models/perceptron.pkl' : 0.326
+\end{lstlisting}
 
 There are other options available that are described using the '--help' option, they will be described in the next sections of this report as they come up.
