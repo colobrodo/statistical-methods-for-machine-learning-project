@@ -7,14 +7,16 @@ Given a linearly separable training set $S = \{(\boldsymbol{x}_1, y_1), \dots, (
 \begin{align*} 
     & \underset{\boldsymbol{w} \in \mathbb{R}^d}{\min} \ \frac{1}{2} \Vert \boldsymbol{w} \Vert^2 \\
     & \text{s.t.} \ y_t \boldsymbol{w}^\top \boldsymbol{x}_t \geq 1 \ \text{for} \ t = 1, \dots, m 
-\end{align*}
+\end{align*}\\
+
 
 In case the training data is not separable, we try to minimise both how much of each constraint is violated and the margin of the separator.\\
 We express this as another convex problem using the slack variables $\xi_t$ and a regularisation coefficient $\lambda$.
 If the regularisation coefficient is large, the algorithms will generate a predictor that allows more classification error in the training set.\\
 Conversely, if $\lambda$ is small, we try to minimise the classification error we have made.\\
 Usually for $\lambda$ too small, we try to minimise the misclassification, so the training error is small and we are likely to overfit.\\
-Instead, for choices of $\lambda$ too large, we have a high training error, and if the test error is also high, we will underfit. \\In the next subsection, I describe how I choose the hyperparameter of the regularisation coefficient and how the test and training errors vary when I change it more precisely.\\ % TODO: label reference
+Instead, for choices of $\lambda$ too large, we have a high training error, and if the test error is also high, we will underfit. \\
+In the next subsection \ref{sub:hyptun}, I describe how I choose the hyperparameter of the regularisation coefficient and how the test and training errors vary when I change it more precisely.\\ 
 
 \begin{align*}
     \underset{(\boldsymbol{w}, \boldsymbol{\xi}) \in \mathbb{R}^{d+m}}{\min} \quad & \frac{\lambda}{2} \Vert \boldsymbol{w} \Vert^2 + \frac{1}{m} \sum_{t = 1}^m \xi_t \\
@@ -26,14 +28,14 @@ Now, fix $\boldsymbol{w} \in \mathbb{R}^d$, we can see $\xi_t = \left[1 - y_t \b
 
 The SVM problem can be rewritten as $$\underset{\boldsymbol{w} \in \mathbb{R}^d}{\min} \ \frac{\lambda}{2} \Vert \boldsymbol{w} \Vert^2 + \frac{1}{m} \sum_{t = 1}^m h_{t}(\boldsymbol{w})$$.\\
 
-% TODO: computational cost of the svm model
 The optimization problem that describe the Support Vector Machine is optimized using the Pegasos algorithm.\\
 The Pegasos algorithm is a variant of the Stocastic Gradient Descent algorithm, where at each step a point (or a set of points in the mini-batch variant) is sampled randomly from the training set
 and the current predictor is updated with the negative gradient of the loss of that training example weighted by a learning rate factor $\eta_t$.\\
 In case of Pegasos the learning rate factor $\eta_t$ is choose at each step as $\frac{1}{\lambda t}$.\\
-I implement the Pegasos algorithm using the standard variant with the hinge loss, and with the logistic loss (Described in the Logistic regression parameter).\\
+I implement the Pegasos algorithm using the standard variant with the \textit{hinge} loss, and with the \textit{logistic} loss (Described in the Logistic regression subsection \ref{sub:logreg}).\\
 Both this functions are convex upper bounds of the zero-one loss, and the $\lambda$ regularization parameter allow to have a $\lambda$-strongly convex function to minimize with the gradient descent.\\
-% TODO: because of this fact we use the bound from OGD and obtain the one over the expected value for Pegasos
+% TODO: refer to the OGD and Pegasos bound on function minimum this is why we say that the function to minimize are $\lambda$-strongly convex
+
 \subsection{Naive}
 As I previously said I implemented Pegasos using two surrogate losses: hinge loss and logistic loss.\\
 Now I describe the implementation with hinge loss, that differs from the logistic one only by the update step.\\ 
@@ -47,7 +49,7 @@ $$\nabla\ell_{s_t}(w) = -y_{s_t} x_{s_t} \mathbb{I}\{h_{s_t}(\boldsymbol{w}) > 0
 Let $\boldsymbol{v_t} = y_t x_t I\{h_t(\boldsymbol{w_t}) > 0\}$ and choosing $\eta_t = \frac{1}{\lambda t}$ we have
 $$\boldsymbol{w}_{t+1} = \boldsymbol{w}_t (1 - \frac{1}{t}) + \frac{1}{\lambda t} \boldsymbol{v_t}$$
 
-\subsubsection{implementation details}
+\subsubsection{Implementation details}
 I adapted this version of the algorithm from \textit{Pegasos: Primal Estimated sub-GrAdient SOlver for SVM}\cite{Pegasos_paper}\\
 
 \begin{algorithm}[H]
@@ -68,24 +70,29 @@ I adapted this version of the algorithm from \textit{Pegasos: Primal Estimated s
     Output $\boldsymbol{w}_{T+1}$
 \end{algorithm}
 
-The name of the variables are adapted to be consistent with the pseudo code reported\\
-Between the code presented in the lecture and this one presented in the paper there are some differences with the pseudocode presented during the lectures:\\
+The name of the variables are adapted to be consistent with the pseudo code reported.\\
+Between the code presented in the lecture and this one presented in the paper there are some differences:\\
 \begin{itemize}
     \item The gradient descent update is written in a slightly different way using a conditional statement instead of the classical indicator function, I choose to remain consistent also with this stilistic choice.\\
     \item Instead of return the average of all the weight vector calculated at each step, the paper returns only the last one.\\ 
-    The authors indicates that they notate an improvment in performance returning the last vector instead of the average.\\ 
-    I embrace also this variation.\\
-    \item In the pseudo code of Pegasos they also describe an optional projection step to clamp the magnitude of the linear predictor, but I don't incorporate it.\\ 
-    % TODO: mini-batch: if I test also the mini-batch I should report if I notice some improvment and how the algorithm change based on the hyperparameter
-    \item The author also provide a mini-batch version of the Pegasos algorithm, using the batch size $k$ as another hyperparameter.\\
+    The authors indicate that they note an improvement in performance by returning the last vector instead of the average.\\ 
+    I accept also this variation.\\
+    \item The Pegasos pseudocode also describes an optional projection step to clamp the magnitude of the linear predictor, but I don't incorporate it.\\ 
 \end{itemize}
 
-Another approach proposed by the paper is {\bf sampling without replacement}: so a random permutation of the training set is choosen and the updates are performed in order on the new sequence of data.
-In this way, in one epoch, a training point is sampled only once.\\
-After each epoch we can choose if we restart to sample data sequentially according to the same permutation or create a new one and sampling according that new order.\\
-Although the authors report that this approaches gives better results than uniform sampling as I did, I haven't experiment this variant of the algorithm.\\
+% TODO: mini-batch: if I test also the mini-batch I should report if I notice some improvment and how the algorithm change based on the hyperparameter
+Two other approaches that the author suggest but I don't experiment are:
+\begin{itemize}
+    \item The author also provides a \textbf{mini-batch} version of the Pegasos algorithm.\\ 
+    The chosen batch is a set of $k$ random samples from the training set, and the linear predictor is updated with the average loss gradient of all incorrectly predicted samples in the batch.\\
+    The batch size $k$ can be chosen in advance or treated as another hyperparameter.\\
+    \item \textbf{sampling without replacement}: a random permutation of the training set is chosen and the updates are performed in order on the new sequence of data.
+    In this way, a training point is sampled only once in an epoch.\
+    After each epoch, we can choose whether to resume sampling the data sequentially according to the same permutation, or to create a new permutation and sample according to that new order.\\
+    Although the authors report that this approach gives better results than uniform sampling as I did, I haven't experimented with this variant of the algorithm.\\    
+\end{itemize} 
 
-\subsubsection{Hyperparameter tuning}
+\subsubsection{Hyperparameter tuning} \label{sub:hyptun}
 Unlike the perceptron, the Pegasos algorithm had a hyperparameter to choose from: The regularisation coefficient $\lambda$.\\
 To choose the best hyperparameter for this algorithm (and the others that I will implement), I choose the grid search method.\
 I divide the training set into 2 different subsets: $S_{traing}$ and $S_{dev}$.\\
@@ -119,20 +126,20 @@ In this case, I choose the set $\Theta_0 = \{ 0.0001, 0.001, 0.01, 0.1, 1, 10, 1
     The values $S_{val}$ and $S_{train}$ while $\lambda$ changes.\\
 \end{center}
 
-% TODO: rivedere questa parte, devo eseguire i test error su tutti i predictor??
 Looking at the table we can deduce for which choice of $\lambda$ we underfit and overfit and in our case the sweet spot is the value for $\lambda = 0.1$.\\
 The test error for the best predictor is 0.2935.\\
 We can also see that for smaller value of lambda we have an high test error and model is overfitting while for large value are likely to underfit.\\
 The weight for the Pegasos algorithm are the following: \\
+% TODO: file esterno per i pesi del linear predictor
 0.2080856  -0.0066276   0.07067274 -0.26477777  0.24795273 -0.06704699\\
 0.28821758  0.65130349  0.16619769 -0.06650096 -0.0724
 
-\subsection{Logistic regression}
+\subsection{Logistic regression} \label{sub:logreg}
 Logistic regression aim to learn the function $\eta(\boldsymbol{x}) = \mathbb{P}(Y = +1\ |\ \textbf{X} = \boldsymbol{x})$.\\
 The implementation of logistic regression differs from the standard Pegasos because it uses the logistic loss as surrogate loss and not hinge.\\
 The logistic loss is defines ad follows: $$\ell(y, \hat{y}) = \log_2 (1+e^{-y\hat{y}}).$$\\
 So the gradient descent update becomes: $$\boldsymbol{w}_{t+1} = \boldsymbol{w}_t + \eta_t \sigma(-y_t \boldsymbol{w}^T \boldsymbol{x}_t) y_t \boldsymbol{x}_t$$\\
-I choose the regularization parameter in the same way and obtained the following result.\\
+I choose the regularization parameter as described in the previous subsection and obtained the following results.\\
 \begin{center}
     \begin{tabular}{| c | c | c |}
         \hline
@@ -154,8 +161,8 @@ I choose the regularization parameter in the same way and obtained the following
 I have choosen the hyperparameter $\lambda = 1$ and obtained a test error of: 0.292.\\
 
 \subsection{Feature Expansion}
-I have also trained the two previous algorithm over the polynomial feature expansion of second degree of the whole dataset.\\
-Like in the case of perceptron, since we are able to express a separator in an high dimension we obtain better results than the native version (at the cost of an increasing number of feature in the dataset).\\  
+I have also trained the two previous algorithms over the polynomial feature expansion of second degree of the whole dataset.\\
+Like in the case of perceptron, since we are able to express a separator in an high dimension we obtain better results than the naive version (at the cost of an increasing number of features in the dataset).\\  
 \subsubsection{Pegasos}
 This are the following validation and development errors training the Pegasos algorithm the same set of values choosen for the hyperparameter $\lambda$ as in the naive version.\\
 
@@ -204,21 +211,6 @@ The test error obtained training the predictor on the whole training set with th
 \end{center}
 
 The test error obtained for the feature expanded logistic regression (with $\lambda = 0.001$) is $0.1125$ with a training error of $0.1055$.\\
-Note that not all of the parameters for $\lambda$ used in the previous case for the grid search are used in this case.\\ 
+Note that for both versions of logistic regression, not all of the $\lambda$ parameters used for the hinge loss SVM in the grid search are used in this case.\\ 
 This is because for values that are too small, I get an overflow error when exponentiating in the sigmoid function.\\ 
 These values, for which the gradient update calculation is not feasible, are simply discarded.\\
-
-% Support Vector Machine (Pegasos)
-%   - naive
-%       - Hyperparameter tuning
-%          grid search with his implementation
-%       - implementation details
-%           (compare the implementation with the one on the paper)
-%           kernelized version typo: the index i_t in the summation
-%       - results
-%           - Overfitting and under fitting (theoric view)
-%   - logistic regression
-%       - results
-%           - Overfitting and under fitting (theoric view)
-%   - with Feature expansion
-%   - logistic regression with Feature expansion

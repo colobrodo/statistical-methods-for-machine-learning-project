@@ -3,8 +3,8 @@
 
 The first algorithm that I implemented is the perceptron algorithm.\\
 The perceptron algorithm is used to learn linear classifiers.\\
-linear classifiers are identified by an hyperplane that separe the input space into two halfspaces, one positive and one negative.\\
-The positive halfspace is called so because the dot product with the normal vector that identify the hyperplane and any point in that space is positive, similary the negative halfspace has always negative dot products.\\
+Linear classifiers are identified by an hyperplane that separe the input space into two halfspaces, one positive and one negative.\\
+The positive halfspace is called so because the dot product with the normal vector that identify the hyperplane and any point in that halfspace is positive, similary the negative halfspace has always negative dot products.\\
 One important property of the Perceptron is the convergence (to the ERM) in a finite number of step if the dataset is lineary separable.\\
 This properties is stated by the \textbf{Perceptron Convergence Theorem}:
 
@@ -15,21 +15,22 @@ $$
 
 where $\gamma (\boldsymbol{u})$ is the margin obtained by the linear separator $\boldsymbol{u}$\\ 
  
-Is possible to show also a bound for non lineary separable cases:\\
+Is possible to show also a bound for non lineary separable cases (That cannot have a 0 training error):\\
 
 $$
 M \leq \sum_{t=1}^{T} h_{t}(\boldsymbol{u}) + (\Vert \boldsymbol{u} \Vert X)^2 + \Vert \boldsymbol{u} \Vert X \sqrt{\sum_{t=1}^{T}h_t (\boldsymbol{u})} \quad \text{for all}\ \boldsymbol{u} \in \mathbb{R}^d    
 $$
 
 This shows a bound on the number of mistakes made by the Perceptron algorithm on any data sequence of arbitrary length $T$.\\
-$h_{t}(\boldsymbol{u})$ is the hinge loss for the $t$-example.\\
+$h_{t}(\boldsymbol{u})$ is the hinge loss for the $t$-th example, defined ad $h_t(u) = \max\{0, 1 - \boldsymbol{u}^T \boldsymbol{x}_t y_t\}$.\\
 
 Both the result show a linear dependence with the number of mistakes $M$ and  $X^2$, the radius of the smaller sphere that inscribe all the training points.\\
 This also show why, in our case, both \textit{standardization} and \textit{normalization} are so effective:\\
-We are reducing the radius of this sphere and so having a thighter bound on the number of mistakes.\\
+We are reducing the radius of this sphere and so having a thighter bound on the number of mistakes with the same number of rounds $T$.\\
 
 
 \subsection{Naive version}
+Here I present the pseudocode for the perceptron algorithm taken from the lecture notes \cite{lect_notes}.\\
 \begin{algorithm}[H]
     \SetAlgoLined
     \DontPrintSemicolon
@@ -50,11 +51,12 @@ We are reducing the radius of this sphere and so having a thighter bound on the 
 \end{algorithm}
 
 My implementation slightly varies from the presented pseudocode:
-While the above on keep running until convergence if the training set is not lineary separable (as in this case) we never converge and so the algorithm never terminates.\\
-To avoid this I use an additional parameter 'max\_epoch' that limits the number of epoch which tha algorithm can run.\\
+While the above will continue to run until convergence, if the training set is not linearly separable (as in this case) we will never converge and so the algorithm will never terminate.\\
+To avoid this, I use an additional parameter 'max\_epoch' which limits the number of epochs the algorithm can run.\\
 I choose to use a fixed value of 20 for this parameter both for the naive case and over the feature expanded dataset presented in the next section.\\
 Training the perceptron algorithm with the preprocessing methodology described in the previous chapter (For all the algorihtms I describe I trained it with the default command line options), I have obtained a training error of $0.322625$ and a test error of $0.326$.\\
 The linear separator founded by the perceptron algorihtm has the following features:\\\\
+% TODO(*): write the features in a file in the result folder
 (0.55604295,  1.97486085, -2.58700382, -1.74490783,  1.91766823, -3.89876104,\\
  -0.02419966,  3.06371997,  0.21648717, -0.79054099,  1)
 (Recall the features are 11 because we add a constant feature of 1 to the dataset to being able to express non-homogeneous linear hyperplane).\\
@@ -67,6 +69,7 @@ For this reason the training and test error of the resulting predictor are signi
 Specifically I obtained a training error of 0.085375, and a test error of 0.087.\\
 This, of course, came at the cost of significantly increasing the number of features in the datasets and also the computational cost of operations between vectors (such as sums and dot products).\\
 As we will see later, we can avoid this cost by using kernels, which allow us to compute the dot product of the feature expansion of two vectors without explicitly computing their expansion.\\ 
+% TODO(*): write in a separate file?
 This are the features obtained:\\\\
 (1.87559817e+01  1.13401244e+00  7.68047788e+00 -1.32276315e+01\\
   1.73791816e+01 -5.35283741e+00  1.04738036e+01  6.65533633e+01\\
