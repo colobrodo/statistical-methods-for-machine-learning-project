@@ -6,8 +6,12 @@ from kernel import Kernel
 from predictor import KernelizedLinearPredictor, LinearPredictor
 
 
-# TODO: DOC
 class Perceptron(LinearPredictor):
+    """This class represent an instance of the perceptron, with a `predict` 
+    method.   
+    It's also possible to update the weight of the underling linear predictor
+    with a wrong predicted sample using the `update` procedure
+    """
     def __init__(self, features: np.ndarray):
         super().__init__(features)
         self.updates = 0

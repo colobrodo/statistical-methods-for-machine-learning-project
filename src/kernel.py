@@ -38,7 +38,7 @@ class PolynomialKernel(Kernel):
         return f"PolynomialKernel(degree={self.degree})"
 
 
-# TODO: DOC
+# TODO: 
 def polynomial_feature_expansion(X: np.ndarray, n: int) -> np.ndarray:
     """Computes the polynomial feature expansion for the array `X` of degree `n`"""
     samples, features = X.shape
@@ -46,7 +46,7 @@ def polynomial_feature_expansion(X: np.ndarray, n: int) -> np.ndarray:
     combinations = []
     for d in range(1, n + 1):
         combinations.extend(combinations_with_replacement(range(features), d))
-    # TODO:
+    # TODO: 
     # Create a list to hold the new features
     poly_features = np.empty((samples, len(combinations)), dtype=X.dtype)
     # Generate the new features

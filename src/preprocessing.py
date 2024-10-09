@@ -39,8 +39,17 @@ class ScalingMethod(Enum):
     NONE = auto()
 
 
-# TODO: DOC
-def preprocessing(dataset: np.ndarray, scaling=ScalingMethod.STANDARDIZE, remove_outliers=False):
+def preprocessing(dataset: np.ndarray, scaling=ScalingMethod.STANDARDIZE, remove_outliers=False,
+                   train_test_split_factor=0.8) -> tuple[tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
+    """Given a `dataset` this function preprocess it removing his outliers if `remove_outliers` is
+    `True`, then dividing the dataset into train and test set based on `train_test_split_factor`.   
+    Scaling both sets using the choosed `ScalingMethod` from the `scaling` parameter.   
+    And finally adding a constant feature of `1` to being able to express non-homogeneous linear 
+    separator.   
+    The result of the function is a tuple with the preprocessed training set in the first component
+    and the test set in the second.   
+    Both the test and training set are a pair of training points and correspoinding labels in two 
+    distinct `np.ndarray`."""
     dataset_size, _ = dataset.shape
     # REPORT: also say that I check for duplicates and don't find any of them
     if remove_outliers:
@@ -60,7 +69,7 @@ def preprocessing(dataset: np.ndarray, scaling=ScalingMethod.STANDARDIZE, remove
         logging.debug(f"preprocessing: removed {n_outliers} outliers on a dataset of {dataset_size} elements")
 
     # split the dataset in training and test set
-    train_set, test_set = split_dataset(dataset, training_size=0.8)
+    train_set, test_set = split_dataset(dataset, training_size=train_test_split_factor)
     train_size, _ = train_set.shape
     test_size, _ = test_set.shape
     # split datapoints and labels into different arrays for training and test set
@@ -68,9 +77,7 @@ def preprocessing(dataset: np.ndarray, scaling=ScalingMethod.STANDARDIZE, remove
     y_train = train_set[:, -1]
     X_test = test_set[:, :-1]
     y_test = test_set[:, -1]
-    # REPORT: NOTE: show the theoretical bound to justify why we use scaling or stadardization (X the radius on the bound for OGD on strongly convex funct)
-    # try which one is the best and justify the choice, or maybe better try both and show which algorithm perform better
-    # rescale the data to fit in a normal distribution
+    # scaling the datapoint based on the choosed method by the user
     if scaling == ScalingMethod.STANDARDIZE:
         logging.debug('preprocessing: feature rescaling standardization')
         X_train, X_test = standardize(X_train, X_test)

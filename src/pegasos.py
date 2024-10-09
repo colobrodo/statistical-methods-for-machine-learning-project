@@ -9,9 +9,14 @@ from kernel import Kernel
 from predictor import KernelizedLinearPredictor, LinearPredictor, Predictor
 
 
-# TODO: doc string
-# TODO: try minibatch variant and write and compare results on the report (also for logistic)
 def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> LinearPredictor:
+    """This function trains and returns a linear predictor using the Pegasos algorithm with the 
+    given training set passed in the first two parameters (`training_points` and 
+    `training_labels`).    
+    The regularization coefficent is passed in the optional parameter `regularization_coefficent`,
+    and the number of rounds is instead choosed by the parameter with the same name (defaults to 
+    `1000`).
+    """
     samples, features = training_points.shape
     w = np.zeros(features)
     # NOTE: t the index of current round are 1-based in the for loop to avoid division by zero
@@ -39,8 +44,15 @@ def pegasos(training_points: np.ndarray, training_labels: np.ndarray, regulariza
     #       Although the authors report that this approach gives better results than uniform sampling as I did, I haven't experiment this variant of the algorithm
     return LinearPredictor(w)
 
-# TODO(*): the typing lies: we say we return predictor but in reality we still returrning a closure fix it
 def kernelized_pegasos(training_points: np.ndarray, training_labels: np.ndarray, kernel: Kernel, regularization_coefficent=0.1, rounds=1000) -> Predictor:
+    """This function trains and returns a linear predictor using the kernelized version of the 
+    Pegasos algorithm with the given training set passed in the first two parameters 
+    (`training_points` and `training_labels`).    
+    The regularization coefficent is passed in the optional parameter `regularization_coefficent`,
+    and the number of rounds is instead choosed by the parameter with the same name (defaults to 
+    `1000`).
+    A valid implementation of `Kernel` should be passed to the `kernel` parameter.
+    """
     samples, _ = training_points.shape
     predictor = KernelizedLinearPredictor(kernel, training_points, training_labels)
     # NOTE: t the index of current round are 1-based in the for loop to avoid division by zero
@@ -50,18 +62,22 @@ def kernelized_pegasos(training_points: np.ndarray, training_labels: np.ndarray,
         x_it = training_points[random_index]
         y_it = training_labels[random_index]
         learning_rate = 1 / (regularization_coefficent * t)
-        # TODO: should we exclude somehow the alpha for the current index? 
         if y_it * learning_rate * np.dot(np.multiply(predictor.alpha, training_labels), kernel(training_points, x_it)) < 1:
             predictor.update(random_index)
-    # TODO(*): we should generalize the predictor into a protocol or something like that and create subclass for linear and the two kernel algorithm
     return predictor
 
 def sigmoid(z: float) -> float:
     """Computes the sigmoid function over a scalar `z`"""
     return 1 / (1 + exp(-z))
 
-# TODO: DOC
 def train_regularized_logistic_classification(training_points: np.ndarray, training_labels: np.ndarray, regularization_coefficent=0.1, rounds=1000) -> LinearPredictor:
+    """This function trains and returns a linear predictor using the Logistic Regression algorithm.     
+    The training set is passed in the first two parameters (`training_points` and
+    `training_labels`).    
+    The regularization coefficent is passed in the optional parameter `regularization_coefficent`,
+    and the number of rounds is instead choosed by the parameter with the same name (defaults to 
+    `1000`).
+    """
     samples, features = training_points.shape
     w = np.zeros(features)
     # NOTE: t the index of current round are 1-based in the for loop to avoid division by zero

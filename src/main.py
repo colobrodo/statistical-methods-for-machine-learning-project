@@ -40,7 +40,7 @@ class HyperparameterSearchResult:
         self.predictor = predictor
         self.objective = objective
 
-# TODO: types and doc string, also for single parameter
+# TODO: doc string
 def grid_search(algorithm, training_points, training_labels, **hyperparameters) -> HyperparameterSearchResult:
     X_dev, X_val = split_dataset(training_points, 0.75)
     y_dev, y_val = split_dataset(training_labels, 0.75)
