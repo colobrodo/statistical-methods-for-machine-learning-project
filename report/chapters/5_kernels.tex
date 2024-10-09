@@ -1,32 +1,34 @@
 \newpage
 \section{Kernel}
-In the previous section I have showed the benefit of training the algorithm in an high-dimensional space.\\
+In the previous section I have showed the benefit of training the algorithms in an high-dimensional space.\\
 This came with the cost of increasing sensibily the number of the feature even in case of a simple polynomial feature expansion of degree 2.\\
 We can have the performance improvement obtained with feature expansion without increasing the dimensionality of the dataset using the kernel trick.\\
 Instead of computing the feature expansion map on evry point and then computing the dot product with the expanded linear predictor we can use a kernel $K$ that calculate the dot product of two expanded vector without explicitly calculate the expansion.\\
-Let the feature expansion be $\phi(x)$ a kernel $K$ for the feature expansion is defined as $$K(x, x') = \phi(\boldsymbol{x})^T \phi(\boldsymbol{x'})  for all \boldsymbol{x}, \boldsymbol{x'} \in R$$\\
+Let the feature expansion be $\phi(x)$, a kernel $K$ for the feature expansion is defined as $$K(x, x') = \phi(\boldsymbol{x})^T \phi(\boldsymbol{x'}) \quad \text{for all} \boldsymbol{x}, \boldsymbol{x'} \in R$$\\
 The two kind of kernel used in the project are the \textbf{Polynomial kernel} and the \textbf{Gaussian kernel}.\\
-The polynomial kernel of degree $n$ is defined as $$K_n(x, x') = (1 + \boldsymbol{x}^T \boldsymbol{x'})^n$$
-The gaussian kernel of parameter $\gamma$ is defined as $$K_\gamma(x, x') = exp(-\frac{1}{2\gamma}||\boldsymbol{x} - \boldsymbol{x'}||^2)$$
+The \textit{polynomial kernel} of degree $n$ is defined as $$K_n(x, x') = (1 + \boldsymbol{x}^T \boldsymbol{x'})^n$$
+The \textit{gaussian kernel} of parameter $\gamma$ is defined as $$K_\gamma(x, x') = exp(-\frac{1}{2\gamma}||\boldsymbol{x} - \boldsymbol{x'}||^2)$$
 Note that both the kernels accept a parameter (a degree in the polynomial case and gamma for gaussian one) this becomes another hyperparameter of the learning algorithm
 and it's choosen with the same hyperparameter tuning procedure descripted in the previous chapters.\\ 
-Each kernel induce a linear space defined as a set of linear combination of functions $K(\boldsymbol{x}, \dot)$.\\
+Each kernel induce a linear space defined as a set of linear combination of functions $K(\boldsymbol{x}, \cdot)$.\\
 \begin{align*}
     \mathcal{H}_K \equiv \left\{ \sum_{i=1}^N \alpha_i K(\boldsymbol{x}_i, \cdot) : \boldsymbol{x}_1, \dots, \boldsymbol{x}_N \in \mathcal{X}, \alpha_1, \dots, \alpha_N \in \mathbb{R}, N \in \mathbb{N} \right\}
 \end{align*}
 This spaces are called Reproducible Kernel Hilbert Space (RHKS).\\
-A linear predictor trained in these linear spaces induced by kernels can overfit; in the case of polynomial kernels, we can choose a degree that is too high and obtain a curve with more degrees of freedom, which is more likely to separate the training data and obtain a small training error.\\
-For the Gaussian, we should know that the parameter $\gamma$ is the width of the Gaussian centre at the training point.\\
-This means that if $\gamma$ is too small, we are likely to have a small training error (we only look at the labels of the nearest points) and overfit.\\
+A linear predictor trained in these linear spaces induced by kernels can overfit; in the case of polynomial kernels, we can choose a degree that is too high and obtain a linear separator that is also rapresentable by a polynomial curve of degree $n$ in the original space, which is more likely to separate the training data and obtain a small training error.\\
+For the Gaussian, we should know that the parameter $\gamma$ is the width of a Gaussian centered on the training point.\\
+If $\gamma$ is too small, the training error will be small and we will overfit because the Gaussians of different training points almost never overlap and the algorithm behaves like K nearest neighbours with $K =$.\\
 
 
 \subsection{Implementation details}
 I used two classes with the '\_\_call\_\_' python magic method to implement the kernels functions.\\
 Both takes two parameter $X$ and $X2$.\\
 They can take two vectors and the kernel behave as mathematicly defined or the parameter can be 2 matrices of size $m$ x $d$ and $n$ x $d$.\\
-In the second case a new matrix $\boldsymbol{K}$ ($m$ x $n$) defined as $\boldsymbol{K}_{i, j} = K(X_i, X2_j)$.\\
-This is particular useful to avoid python for loops and delegate the computations to the optimize implementation of the numpy primitives.\\
+In the second case a returned matrix $\boldsymbol{K}$ ($m$ x $n$) is defined as $\boldsymbol{K}_{i, j} = K(X_i, X2_j)$.\\
+This is particularly useful when calculating the kernel over the whole dataset, to avoid Python for loops and delegate the calculations to the optimised implementation of the numpy primitives.\\
 
+Following the implementation of the call method for the two Kernel classes.\\
+Implementation of the polynomial kernel over $X$ and $X2$.\\
 \begin{python}
 def __call__(self, X: np.ndarray, X2: np.ndarray):
     if X2.ndim == 1:
@@ -34,8 +36,8 @@ def __call__(self, X: np.ndarray, X2: np.ndarray):
     elif X2.ndim == 2:
         return np.power(np.dot(X, X2.T) + 1, self.degree)
 \end{python}
-Implementation of the polynomial kernel over $X$ and $X2$.\\
 
+Implementation of the gaussian kernel over $X$ and $X2$ with the parameter gamma $\gamma$ .\\
 \begin{python}
     def __call__(self, X: np.ndarray, X2: np.ndarray):
         if X2.ndim == 1:
@@ -44,13 +46,17 @@ Implementation of the polynomial kernel over $X$ and $X2$.\\
             dist = np.linalg.norm(X[:, np.newaxis, :] - X2[np.newaxis, :, :], axis=2)
         return np.exp(-dist / self.gamma)
 \end{python}
-Implementation of the gaussian kernel over $X$ and $X2$ with the parameter gamma $\gamma$ .\\
-% add the two implementations with code
 
 \subsection{Kernelized Perceptron}
 
 The first algorithm I implement using the kernel trick is the perceptron.\\
-following I provide a pseudocode taken from the lecture notes about this algorihtm.\\ 
+Following I provide a pseudocode taken from the lecture notes about this algorihtm.\\ 
+
+% TOMORROW:
+% TODO: I should make a discussion about the computational cost of the kernel versions of the algorithms
+%       specially how is more expensive to train the kernelized version since each update step has also the cost of linear interpolating with alpha the whole training set to make the prediction.
+%       so the cost is no more O(T) but is generaly O(m * T)
+%       the kernelized variant described in the pseudocode is more effective for a smaller number of round T < m as in the worst case it going to be O(T^2) 
 
 % pseudocode
 
@@ -70,7 +76,7 @@ following I provide a pseudocode taken from the lecture notes about this algorih
 
 % Difference between implementation and pseudocode
 Looking at the implementation, I have implemented the kernel perceptron algorithm with an array $\alpha$ of integer weights for each point of the training set instead of using a set $S$, this may seem different from the pseudocode presented, but we can interpret $\alpha$ as representing a multi-set and have an equivalent algorithm.\\
-This choice, taken from the pseudo code of the kernelized perceptron in the Pegasos paper, is adopted because we can express the summation more simply and efficiently thanks to the numpy primitive such as 'np.dot'.\\
+This choice, taken from the pseudo code of the kernelized perceptron in the Pegasos paper \cite{Pegasos_paper}, is adopted because we can express the summation more simply and efficiently thanks to the numpy primitive such as 'np.dot'.\\
 
 % Hyperparameter
 With the kernel version we have a new hyperparameter: The type of kernel used with its parameter (the degree for polynomials and the $\gamma$ for Gaussians).\\
@@ -94,11 +100,12 @@ Among the possible values, we choose 1, 2, 3, 4 for the possible degrees of the 
     \label{tab:kper}
 \end{table}
 We can make some considerations about the data in the table \ref{tab:kper} based on the previous theoretical section of this chapter:
-% TODO: better rewrite
-We can see that when using the Gaussian kernel, we have a training error $S_{train} = 0$ for the smaller value of $\gamma$, 
-This can be explained by observing that if the radius of the Gaussians is too small, the Gaussians over the training points do not interact and for each training point the algorithm behaves as a K-NN with $K = 1$ and for the same reason the training error is 0.\\
-It's also possible to know in which cases for the polynomial kernel we overfit, observe that in the case of $n = 4$ we have a value $S_{val}$ significantly greater than $S_{train}$.\\
-In contrast, for $n < 3$ we also have both an high $S_{val}$ and an high $S_{train}$, indicating underfitting.\\
+As we already explained for smaller values of $\gamma$ in the Gaussian kernel the training error is 0 and the algorithm overfits with this parameters.\\
+It's also possible to know in which cases for the polynomial kernel we are overfitting, observe that in the case of $n = 4$ we have a value $S_{val}$ significantly greater than $S_{train}$.\\
+In contrast, for $n < 3$ we also have both a high $S_{val}$ and a high $S_{train}$, indicating underfitting.\\
+The polynomial kernel with $n = 3$ is the best one even if the $S_{val}$ higher than $S_{train}$ indicates a slight overfitting.\\
+After choosing this hyperparameter we obtain  a training error of 0.034125 and a test error of 0.0495.\\
+
 \subsection{Kernelized Pegasos}
 
 \begin{algorithm}[H]
@@ -183,6 +190,7 @@ As in the previous algorithm, I fixed a number of rounds $T = 100000$ and tuned 
 
 % 
 The best hyperparameters obtained by the grid search procedure are a regularization coefficient $\lambda = 0.1$ and a polynomial kernel of degree 3.\\
+Note that the best performing kernel is the same both for \textit{kernelized perceptron} and for \textit{Pegasos}.\\ 
 We obtain a training error on the whole data set of 0.035875 and a test error of 0.043.\\
 We can see from the test error that this is the best performing method implemented.\\
 This is also because we are using a 3rd degree polynomial kernel and we are training a linear predictor in a higher dimensional space than the one I obtained with the 2nd degree polynomial expansion.\\

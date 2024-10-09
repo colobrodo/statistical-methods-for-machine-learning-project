@@ -1,0 +1,14 @@
+\newpage
+
+\section{Conclusion}
+I started this report by describing how to use the project and then moved on the preprocessing the data: which methods are used and based on which observation.\\
+Then I implemented the Perceptron, Pegasos and logistic regression algorithms, also with second degree feature expansion and kernelized variants (the latter only for Perceptron and Pegasos).\\
+I have used the lecture notes to introduce the theoretical background for understanding how these algorithms work at the beginning of each chapter, then explained the experimental data based on that.\\
+I have discussed the implementation details and how I choose the hyperparameters for each algorihtm.\\
+I have also identified for which hyperparameters the algorithm overfits and underfits, explained using the theoretical prospective.\\
+The best performing algorithm in all variants is the Pegasos algorithm.\\
+We also observed that the feature-extended version performs better than the naive one, but the best results come from implementing the algorithm in combination with kernels.\\
+More specifically, the third degree polynomial kernel is the best performing kernel for both Perceptron and Pegasos, intuitively because the algorithm is able to express a higher degree polynomial curve in the original space.\\
+The feature expansion is of second degree, so it has less expressive power than the chosen kernel.\\
+But increasing the degree of the polynomial curve doesn't necessarily mean finding a better predictor: we also see that for $n = 4$ the curve overfits the data, giving a low training error but a high test error.\\
+Gaussian kernels are not effective as the polynomial one because they tend to overfit more easily.\\
