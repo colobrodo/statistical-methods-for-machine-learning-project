@@ -52,12 +52,6 @@ Implementation of the gaussian kernel over $X$ and $X2$ with the parameter gamma
 The first algorithm I implement using the kernel trick is the perceptron.\\
 Following I provide a pseudocode taken from the lecture notes about this algorihtm.\\ 
 
-% TOMORROW:
-% TODO: I should make a discussion about the computational cost of the kernel versions of the algorithms
-%       specially how is more expensive to train the kernelized version since each update step has also the cost of linear interpolating with alpha the whole training set to make the prediction.
-%       so the cost is no more O(T) but is generaly O(m * T)
-%       the kernelized variant described in the pseudocode is more effective for a smaller number of round T < m as in the worst case it going to be O(T^2) 
-
 % pseudocode
 
 \begin{algorithm}[H]
@@ -188,7 +182,6 @@ As in the previous algorithm, I fixed a number of rounds $T = 100000$ and tuned 
 \label{tab:kpeg}
 \end{table}
 
-% 
 The best hyperparameters obtained by the grid search procedure are a regularization coefficient $\lambda = 0.1$ and a polynomial kernel of degree 3.\\
 Note that the best performing kernel is the same both for \textit{kernelized perceptron} and for \textit{Pegasos}.\\ 
 We obtain a training error on the whole data set of 0.035875 and a test error of 0.043.\\
@@ -197,3 +190,12 @@ This is also because we are using a 3rd degree polynomial kernel and we are trai
 In the table \ref{tab:kpeg} we can also see for which values of $\lambda$ and kernel degree the predictor overfits, fixing the other hyperparameter.\\
 Fixing the regularization coefficient $\lambda = 0.1$ we can experimentally confirm that for high degrees of the kernel (4) the predictor overfits and has a high validation error and for smaller values (1 or 2) it underfits.\\
 Conversely, by fixing the chosen kernel and varying $\lambda$, we can see that $S_{val}$ is slightly higher for values of the regularization coefficient $< 0.1$ and we are probably overfitting, while for higher values the validation error is much higher and this can signal underfitting.\\
+
+\subsection{A note on the complexity of the algorithms}
+The computational cost of the kernelized versions of the algorithms differs significantly from the naive (or feature-extended) ones.\\
+In the case of the perceptron, the number of samples considered is the number of epochs times the size of the training set (in non-separable cases like the one considered).\\
+While for Pegasos the number of rounds chosen by the user is fixed to $100000$ in our case.\\
+The computational complexity for both is linear in the number of samples $T$ considered ($O(T)$).\\
+For the kernelized versions, instead, for each sample considered, we should compute a linear combination of the learned $alphas$ and the kernel between the sample and every other point in the training set.\\
+This means that the computational complexity increases from $O(T)$ to $O(T * m)$, where $m$ is the size of the training set.\\
+The variant of the kernelized algorithm described in the Pegasos pseudocode is more effective for a smaller number of rounds $T \leq m$ (since in the worst case it will be $O(T^2)$), but to get better results I trained the algorithm with a larger value for $T$.\\
