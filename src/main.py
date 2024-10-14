@@ -40,8 +40,16 @@ class HyperparameterSearchResult:
         self.predictor = predictor
         self.objective = objective
 
-# TODO: doc string
 def grid_search(algorithm, training_points, training_labels, **hyperparameters) -> HyperparameterSearchResult:
+    """This functions take a learning algorithm and a training set with a hyperparameters 
+    dictionary passed as know arguments and perform the grid search procedure to find the best
+    combination of possible hyperparameter values to train the algorithm.   
+    The argument `algorithm` takes a function that accept the training points and labels ad the 
+    first two parameters and more others.   
+    Each hyperparameter passed should have keys that are named as valid parameter of `algorithm` 
+    and the values are iterators that contains the possible value to assign to each hyperparameter.
+    The set of hyperparameter choosed, the trained predictor and the validation error are returned
+    in the structure `HyperparameterSearchResult`"""
     X_dev, X_val = split_dataset(training_points, 0.75)
     y_dev, y_val = split_dataset(training_labels, 0.75)
     best_validation_error = inf
